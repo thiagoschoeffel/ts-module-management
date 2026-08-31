@@ -1,4 +1,4 @@
-import { FactoryIcon } from '@thiagoschoeffel/ts-components'
+import { BoxesIcon, FactoryIcon } from '@thiagoschoeffel/ts-components'
 import type { ManagementPageConfig, ManagementSection } from '../types/management'
 
 export const managementPages: Record<ManagementSection, ManagementPageConfig> = {
@@ -7,7 +7,7 @@ export const managementPages: Record<ManagementSection, ManagementPageConfig> = 
     subtitle: 'Cadastre e mantenha os itens usados na produção.',
     icon: FactoryIcon
   },
-  catalogo: { title: 'Catálogo', subtitle: 'Experiência ainda não disponível.', icon: FactoryIcon },
+  catalogo: { title: 'Catálogo', subtitle: 'Gerencie ofertas, tipos de componente e adicionais.', icon: BoxesIcon },
   entregadores: { title: 'Entregadores', subtitle: 'Experiência ainda não disponível.', icon: FactoryIcon },
   usuarios: { title: 'Usuários', subtitle: 'Experiência ainda não disponível.', icon: FactoryIcon }
 }
