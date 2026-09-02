@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Badge, Button, Input, PlusIcon, Select, XIcon, type SelectOption } from '@thiagoschoeffel/ts-components'
+import { computed, ref } from 'vue'
+import { Badge, Button, EmptyState, FactoryIcon, Input, Select, type SelectOption } from '@thiagoschoeffel/ts-components'
 import { getProducibles } from '../../mocks/producibleStore'
 import type { CompositionComponent, CompositionComponentKind, MeasurementUnit } from '../../types/producible'
 
@@ -13,6 +13,7 @@ const props = withDefaults(defineProps<{
 })
 
 const components = defineModel<CompositionComponent[]>({ required: true })
+const pendingRemovalId = ref<string>()
 
 const kindOptions: SelectOption[] = [
   { value: 'ingredient', label: 'Ingrediente' },
@@ -31,7 +32,10 @@ function newComponent(): CompositionComponent {
 }
 
 function addComponent() { components.value = [...components.value, newComponent()] }
-function removeComponent(index: number) { components.value = components.value.filter((_, current) => current !== index) }
+function removeComponent(index: number) {
+  components.value = components.value.filter((_, current) => current !== index)
+  pendingRemovalId.value = undefined
+}
 function changeKind(component: CompositionComponent, value: string) {
   component.kind = value as CompositionComponentKind
   component.name = ''
@@ -57,7 +61,7 @@ function quantityError(component: CompositionComponent) {
     <div
       v-for="(component, index) in components"
       :key="component.id"
-      class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      class="rounded-lg border border-slate-200 bg-white p-4 shadow-xs">
       <div class="mb-3 flex items-center justify-between gap-3">
         <div class="flex items-center gap-2">
           <span class="text-sm font-semibold text-slate-700">Componente {{ index + 1 }}</span>
@@ -65,11 +69,12 @@ function quantityError(component: CompositionComponent) {
             {{ component.kind === 'producible-item' ? 'Preparação' : 'Ingrediente' }}
           </Badge>
         </div>
-        <Button
-          type="button" size="small" variant="danger" icon-only
-          :aria-label="`Remover componente ${index + 1}`" @click="removeComponent(index)">
-          <template #icon><XIcon /></template>
-        </Button>
+        <div v-if="pendingRemovalId === component.id" class="flex flex-wrap items-center justify-end gap-2">
+          <span class="text-xs font-medium text-slate-600">Remover componente?</span>
+          <Button type="button" size="small" variant="secondary" @click="pendingRemovalId = undefined">Cancelar</Button>
+          <Button type="button" size="small" variant="danger" @click="removeComponent(index)">Sim</Button>
+        </div>
+        <Button v-else type="button" size="small" variant="danger" @click="pendingRemovalId = component.id">Remover</Button>
       </div>
 
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[12rem_minmax(12rem,1fr)_8rem_7rem]">
@@ -92,12 +97,9 @@ function quantityError(component: CompositionComponent) {
       </div>
     </div>
 
-    <p v-if="!components.length" class="rounded-lg border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-400">
-      Nenhum componente adicionado. O item pode ser salvo sem composição e completado depois.
-    </p>
+    <EmptyState v-if="!components.length" size="small" :bordered="false" title="Nenhum componente adicionado" description="O item pode ser salvo sem composição e completado depois."><template #icon><FactoryIcon /></template></EmptyState>
 
     <Button type="button" size="small" variant="secondary" @click="addComponent">
-      <template #icon><PlusIcon /></template>
       Adicionar componente
     </Button>
   </div>

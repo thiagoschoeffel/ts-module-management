@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Alert, AlertDialog, Button, Card, CheckIcon, Input, TriangleAlertIcon } from '@thiagoschoeffel/ts-components'
+import { Alert, AlertDialog, Badge, Button, Card, CheckIcon, InfoIcon, Input, TriangleAlertIcon } from '@thiagoschoeffel/ts-components'
 import CompositionEditor from '../components/producibles/CompositionEditor.vue'
 import { addCompositionVersion, createProducible, getCurrentComposition, getProducible, updateProducibleName } from '../mocks/producibleStore'
 import type { CompositionComponent } from '../types/producible'
@@ -72,10 +72,10 @@ watch(snapshot, () => { if (savedMessage.value) savedMessage.value = '' })
   <form class="space-y-4 pb-20 lg:pb-0" @submit.prevent="save">
     <Alert v-if="savedMessage" variants="success" :description="savedMessage"><template #icon><CheckIcon /></template></Alert>
     <Alert v-if="props.mode !== 'create' && !item" variants="danger" title="Item produzível não encontrado" description="Volte para a lista e selecione um item válido."><template #icon><TriangleAlertIcon /></template></Alert>
-    <Alert v-if="props.mode === 'composition' && item" variants="info" title="Uma nova versão será criada" description="A composição atual será preservada no histórico e não sofrerá alterações."></Alert>
+    <Alert v-if="props.mode === 'composition' && item" variants="info" title="Uma nova versão será criada" description="A composição atual será preservada no histórico e não sofrerá alterações."><template #icon><InfoIcon /></template></Alert>
 
-    <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-      <div class="space-y-4">
+    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div class="min-w-0 space-y-4">
         <Card v-if="props.mode !== 'composition'">
           <template #header>
             <h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Dados do item</h2>
@@ -97,16 +97,17 @@ watch(snapshot, () => { if (savedMessage.value) savedMessage.value = '' })
         </Card>
       </div>
 
-      <aside class="space-y-4 lg:sticky lg:top-20">
-        <Card><template #header><h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Resumo</h2></template>
-          <dl class="space-y-2 text-sm">
-            <div v-if="props.mode === 'composition'" class="flex justify-between gap-3"><dt>Item</dt><dd class="text-right font-medium text-slate-800">{{ item?.name }}</dd></div>
-            <div v-else class="flex justify-between gap-3"><dt>Nome</dt><dd class="text-right font-medium text-slate-800">{{ name.trim() || 'Não informado' }}</dd></div>
-            <div v-if="props.mode !== 'edit'" class="flex justify-between gap-3"><dt>Componentes</dt><dd class="font-medium text-slate-800">{{ components.length }}</dd></div>
-            <div v-if="props.mode === 'composition'" class="flex justify-between gap-3"><dt>Nova versão</dt><dd class="font-medium text-slate-800">v{{ Math.max(0, ...(item?.compositions.map(version => version.version) ?? [])) + 1 }}</dd></div>
+      <aside class="min-w-0 space-y-4 lg:sticky lg:top-20">
+        <Card><template #header><h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Resumo</h2><p class="mt-1 text-sm text-slate-500">Confira os dados antes de salvar.</p></template>
+          <dl class="space-y-3 text-sm">
+            <div v-if="props.mode === 'composition'" class="flex items-center justify-between gap-3"><dt class="text-slate-500">Item</dt><dd class="text-right font-medium text-slate-800">{{ item?.name ?? 'Indisponível' }}</dd></div>
+            <div v-else class="flex items-center justify-between gap-3"><dt class="text-slate-500">Nome</dt><dd class="max-w-48 truncate text-right font-medium text-slate-800">{{ name.trim() || 'Não informado' }}</dd></div>
+            <div v-if="props.mode !== 'edit'" class="flex items-center justify-between gap-3"><dt class="text-slate-500">Componentes</dt><dd><Badge size="medium" :variant="components.length ? 'info' : 'neutral'">{{ components.length }}</Badge></dd></div>
+            <div v-if="props.mode === 'composition'" class="flex items-center justify-between gap-3"><dt class="text-slate-500">Nova versão</dt><dd><Badge size="medium" variant="success">v{{ Math.max(0, ...(item?.compositions.map(version => version.version) ?? [])) + 1 }}</Badge></dd></div>
           </dl>
           <template #footer><Button type="submit" class="w-full" :loading="saving" :disabled="props.mode !== 'create' && !item">{{ props.mode === 'create' ? 'Salvar item' : props.mode === 'edit' ? 'Salvar alterações' : 'Criar nova versão' }}</Button></template>
         </Card>
+        <Alert v-if="props.mode !== 'edit'" variants="info" size="small" description="A composição poderá evoluir em novas versões sem reescrever o histórico."><template #icon><InfoIcon /></template></Alert>
       </aside>
     </div>
 

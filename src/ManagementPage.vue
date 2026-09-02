@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { Button, ChevronLeftIcon, EmptyState, PageHeader, PlusIcon } from '@thiagoschoeffel/ts-components'
 import '@thiagoschoeffel/ts-components/style.css'
 import './style.css'
@@ -13,7 +13,6 @@ import ProducibleDetailPage from './pages/ProducibleDetailPage.vue'
 import ProducibleFormPage from './pages/ProducibleFormPage.vue'
 import ProducibleListPage from './pages/ProducibleListPage.vue'
 import type { CatalogPage as CatalogPageName, ManagementSection, ProduciblePage } from './types/management'
-import type { CatalogSection } from './types/catalog'
 
 const props = withDefaults(defineProps<{
   section?: ManagementSection
@@ -32,8 +31,6 @@ const props = withDefaults(defineProps<{
 const page = computed(() => managementPages[props.section])
 const producible = computed(() => getProducible(props.producibleId))
 const offer = computed(() => getOffer(props.offerId))
-const initialCatalogSection = new URLSearchParams(window.location.search).get('secao')
-const catalogSection = ref<CatalogSection>(initialCatalogSection === 'tipos-componentes' || initialCatalogSection === 'adicionais' ? initialCatalogSection : 'ofertas')
 const pageTitle = computed(() => {
   if (props.section === 'catalogo') {
     if (props.catalogPage === 'new') return 'Nova oferta'
@@ -73,15 +70,15 @@ function catalogReturnUrl() {
   const candidate = new URLSearchParams(window.location.search).get('retorno')
   return candidate && /^\/catalogo(?:\?.*)?$/.test(candidate) ? candidate : '/catalogo'
 }
-function createOffer() {
-  const current = `${window.location.pathname}${window.location.search}`
-  window.location.assign(`/catalogo/novo?retorno=${encodeURIComponent(current)}`)
-}
 </script>
 
 <template>
-  <div class="isolate">
-    <div class="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+  <div
+    class="isolate"
+    :class="(props.section === 'produziveis' && props.produciblePage === 'list') || (props.section === 'catalogo' && props.catalogPage === 'list')
+      ? 'md:flex md:h-[calc(100dvh-11rem)] md:min-h-0 md:flex-col'
+      : ''">
+    <div v-if="!(props.section === 'catalogo' && props.catalogPage === 'list')" class="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
       <PageHeader :title="pageTitle" :subtitle="pageSubtitle">
         <template #icon><component :is="page.icon" :size="32" :stroke-width="1.75" /></template>
       </PageHeader>
@@ -103,10 +100,13 @@ function createOffer() {
         <ChevronLeftIcon class="size-4" aria-hidden="true" />
         {{ props.catalogPage === 'detail' ? 'Voltar para o Catálogo' : props.offerId ? 'Voltar para a oferta' : 'Voltar para o Catálogo' }}
       </a>
-      <Button v-if="props.section === 'catalogo' && props.catalogPage === 'list' && catalogSection === 'ofertas'" type="button" @click="createOffer"><template #icon><PlusIcon /></template>Nova oferta</Button>
     </div>
 
-    <main class="mt-4">
+    <main
+      :class="[
+        props.section === 'catalogo' && props.catalogPage === 'list' ? '' : 'mt-6',
+        (props.section === 'produziveis' && props.produciblePage === 'list') || (props.section === 'catalogo' && props.catalogPage === 'list') ? 'md:min-h-0 md:flex-1' : ''
+      ]">
       <template v-if="props.section === 'produziveis'">
         <ProducibleListPage v-if="props.produciblePage === 'list'" />
         <ProducibleFormPage v-else-if="props.produciblePage === 'new'" mode="create" />
@@ -115,7 +115,7 @@ function createOffer() {
         <ProducibleDetailPage v-else :producible-id="props.producibleId" />
       </template>
       <template v-else-if="props.section === 'catalogo'">
-        <CatalogPage v-if="props.catalogPage === 'list'" @section-change="catalogSection = $event" />
+        <CatalogPage v-if="props.catalogPage === 'list'" />
         <OfferFormPage v-else-if="props.catalogPage === 'new'" mode="create" />
         <OfferFormPage v-else-if="props.catalogPage === 'edit'" mode="edit" :offer-id="props.offerId" />
         <OfferDetailPage v-else :offer-id="props.offerId" />
