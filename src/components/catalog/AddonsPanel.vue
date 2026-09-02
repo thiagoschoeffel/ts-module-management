@@ -45,6 +45,7 @@ const itemsPerPage = 10
 let debounceTimeout: ReturnType<typeof setTimeout> | undefined
 let loadingTimeout: ReturnType<typeof setTimeout> | undefined
 let restoringHistory = false
+let simulatedFailureShown = false
 
 const items = computed(() => { version.value; return mockScenario === 'sem-adicionais' ? [] : getCatalogAddons() })
 const producibles = computed(() => getProducibles())
@@ -74,7 +75,8 @@ function setLoading() {
   isLoading.value = true
   loadingTimeout = setTimeout(() => {
     isLoading.value = false
-    hasLoadingError.value = mockScenario === 'erro'
+    hasLoadingError.value = mockScenario === 'erro' && !simulatedFailureShown
+    simulatedFailureShown = simulatedFailureShown || hasLoadingError.value
   }, 300)
 }
 function restoreFromUrl() {
@@ -138,6 +140,10 @@ const rows = computed<DataTableRow[]>(() => visibleItems.value.map(item => ({ ..
 const hasFilters = computed(() => Boolean(debouncedSearch.value.trim()) || status.value !== 'all')
 const visibleStart = computed(() => filteredItems.value.length === 0 ? 0 : (currentPage.value - 1) * itemsPerPage + 1)
 const visibleEnd = computed(() => Math.min(currentPage.value * itemsPerPage, filteredItems.value.length))
+function clampCurrentPage() {
+  const lastPage = Math.max(1, Math.ceil(filteredItems.value.length / itemsPerPage))
+  currentPage.value = Math.min(currentPage.value, lastPage)
+}
 const emptyDescription = computed(() => {
   if (hasLoadingError.value) return 'Verifique a conexão e tente carregar a lista novamente.'
   if (debouncedSearch.value.trim()) return `Não encontramos adicionais para “${debouncedSearch.value.trim()}”.`
@@ -158,7 +164,11 @@ function updateSort(state: { key?: string, direction?: DataTableSortDirection })
 function handlePopState() {
   restoringHistory = true
   restoreFromUrl()
-  queueMicrotask(() => restoringHistory = false)
+  clampCurrentPage()
+  queueMicrotask(() => {
+    restoringHistory = false
+    persistState()
+  })
 }
 function openForm(item?: CatalogAddon) {
   editingId.value = item?.id
@@ -185,7 +195,12 @@ function save() {
 }
 
 defineExpose({ openCreate: () => openForm() })
-onMounted(() => { window.addEventListener('popstate', handlePopState); setLoading() })
+onMounted(() => {
+  window.addEventListener('popstate', handlePopState)
+  clampCurrentPage()
+  persistState()
+  setLoading()
+})
 onBeforeUnmount(() => {
   if (debounceTimeout) clearTimeout(debounceTimeout)
   if (loadingTimeout) clearTimeout(loadingTimeout)

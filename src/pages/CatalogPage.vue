@@ -65,7 +65,7 @@ onBeforeUnmount(() => window.removeEventListener('popstate', restore))
     aria-label="Seções do catálogo"
     @update:model-value="updateSection">
     <template #content="{ tab }">
-      <div class="mt-4 md:mt-0 md:flex md:h-full md:min-h-0 md:flex-col md:pt-4">
+      <div class="pt-4 md:flex md:h-full md:min-h-0 md:flex-col">
         <div class="flex shrink-0 flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
           <header class="flex items-center gap-3 text-slate-800">
             <BoxesIcon class="size-8 shrink-0" :stroke-width="1.75" aria-hidden="true" />
