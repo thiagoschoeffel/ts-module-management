@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Alert, AlertDialog, Button, CheckIcon, Input, SectionCard, TriangleAlertIcon } from '@thiagoschoeffel/ts-components'
+import { Alert, AlertDialog, Button, Card, CheckIcon, Input, TriangleAlertIcon } from '@thiagoschoeffel/ts-components'
 import CompositionEditor from '../components/producibles/CompositionEditor.vue'
 import { addCompositionVersion, createProducible, getCurrentComposition, getProducible, updateProducibleName } from '../mocks/producibleStore'
 import type { CompositionComponent } from '../types/producible'
@@ -76,19 +76,29 @@ watch(snapshot, () => { if (savedMessage.value) savedMessage.value = '' })
 
     <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
       <div class="space-y-4">
-        <SectionCard v-if="props.mode !== 'composition'" title="Dados do item" description="Identidade operacional estável do item produzido.">
+        <Card v-if="props.mode !== 'composition'">
+          <template #header>
+            <h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Dados do item</h2>
+            <p class="mt-1 text-sm text-slate-500">Identidade operacional estável do item produzido.</p>
+          </template>
           <Input id="producible-name" v-model="name" label="Nome" placeholder="Ex.: Molho da casa" required :error="nameError" />
-        </SectionCard>
+        </Card>
 
-        <SectionCard
-          v-if="props.mode !== 'edit'" :title="props.mode === 'create' ? 'Primeira composição' : 'Componentes da nova versão'"
-          :description="props.mode === 'create' ? 'Defina como este item é produzido agora ou complete a composição depois.' : 'A edição começou como uma cópia da versão atual.'">
+        <Card v-if="props.mode !== 'edit'">
+          <template #header>
+            <h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+              {{ props.mode === 'create' ? 'Primeira composição' : 'Componentes da nova versão' }}
+            </h2>
+            <p class="mt-1 text-sm text-slate-500">
+              {{ props.mode === 'create' ? 'Defina como este item é produzido agora ou complete a composição depois.' : 'A edição começou como uma cópia da versão atual.' }}
+            </p>
+          </template>
           <CompositionEditor v-model="components" :owner-id="props.producibleId" :show-validation="showValidation" />
-        </SectionCard>
+        </Card>
       </div>
 
       <aside class="space-y-4 lg:sticky lg:top-20">
-        <SectionCard title="Resumo">
+        <Card><template #header><h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Resumo</h2></template>
           <dl class="space-y-2 text-sm">
             <div v-if="props.mode === 'composition'" class="flex justify-between gap-3"><dt>Item</dt><dd class="text-right font-medium text-slate-800">{{ item?.name }}</dd></div>
             <div v-else class="flex justify-between gap-3"><dt>Nome</dt><dd class="text-right font-medium text-slate-800">{{ name.trim() || 'Não informado' }}</dd></div>
@@ -96,7 +106,7 @@ watch(snapshot, () => { if (savedMessage.value) savedMessage.value = '' })
             <div v-if="props.mode === 'composition'" class="flex justify-between gap-3"><dt>Nova versão</dt><dd class="font-medium text-slate-800">v{{ Math.max(0, ...(item?.compositions.map(version => version.version) ?? [])) + 1 }}</dd></div>
           </dl>
           <template #footer><Button type="submit" class="w-full" :loading="saving" :disabled="props.mode !== 'create' && !item">{{ props.mode === 'create' ? 'Salvar item' : props.mode === 'edit' ? 'Salvar alterações' : 'Criar nova versão' }}</Button></template>
-        </SectionCard>
+        </Card>
       </aside>
     </div>
 

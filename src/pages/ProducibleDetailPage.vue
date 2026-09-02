@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { Alert, Badge, Button, EmptyState, FactoryIcon, PlusIcon, SectionCard, TriangleAlertIcon } from '@thiagoschoeffel/ts-components'
+import { Alert, Badge, Button, Card, EmptyState, FactoryIcon, PlusIcon, TriangleAlertIcon } from '@thiagoschoeffel/ts-components'
 import { getCurrentComposition, getProducible } from '../mocks/producibleStore'
 
 const props = defineProps<{ producibleId?: string }>()
@@ -50,15 +50,23 @@ onBeforeUnmount(() => { if (loadingTimeout) clearTimeout(loadingTimeout) })
       <div class="flex flex-wrap gap-2"><Button variant="secondary" @click="edit">Editar dados básicos</Button><Button @click="newComposition"><template #icon><PlusIcon /></template>{{ currentComposition ? 'Nova versão de composição' : 'Criar composição' }}</Button></div>
     </div>
 
-    <SectionCard title="Resumo do item" description="A identidade permanece estável mesmo quando a composição evolui.">
+    <Card><template #header><h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Resumo do item</h2><p class="mt-1 text-sm text-slate-500">A identidade permanece estável mesmo quando a composição evolui.</p></template>
       <dl class="grid gap-4 sm:grid-cols-3">
         <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Nome</dt><dd class="mt-1 font-medium text-slate-800">{{ item.name }}</dd></div>
         <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Versão atual</dt><dd class="mt-1 font-medium text-slate-800">{{ currentComposition ? `v${currentComposition.version}` : 'Sem composição' }}</dd></div>
         <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Versões preservadas</dt><dd class="mt-1 font-medium text-slate-800">{{ item.compositions.length }}</dd></div>
       </dl>
-    </SectionCard>
+    </Card>
 
-    <SectionCard v-if="displayedComposition" :title="showingHistorical ? `Composição v${displayedComposition.version}` : 'Composição atual'" :description="showingHistorical ? 'Versão histórica preservada somente para consulta.' : `Versão ${displayedComposition.version}, criada em ${formatDate(displayedComposition.createdAt)}.`">
+    <Card v-if="displayedComposition">
+      <template #header>
+        <h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+          {{ showingHistorical ? `Composição v${displayedComposition.version}` : 'Composição atual' }}
+        </h2>
+        <p class="mt-1 text-sm text-slate-500">
+          {{ showingHistorical ? 'Versão histórica preservada somente para consulta.' : `Versão ${displayedComposition.version}, criada em ${formatDate(displayedComposition.createdAt)}.` }}
+        </p>
+      </template>
       <Alert v-if="showingHistorical" variants="neutral" size="small" title="Versão histórica" description="Esta composição é somente leitura e não pode ser sobrescrita."></Alert>
       <div v-else class="mb-4 flex items-center gap-2"><Badge variant="success">Atual</Badge><span class="text-sm text-slate-500">v{{ displayedComposition.version }}</span></div>
       <div class="mt-4 overflow-hidden rounded-lg border border-slate-200">
@@ -74,14 +82,18 @@ onBeforeUnmount(() => { if (loadingTimeout) clearTimeout(loadingTimeout) })
         </table>
       </div>
       <Button v-if="showingHistorical" class="mt-4" variant="secondary" @click="selectedVersion = currentComposition?.version">Voltar para a versão atual</Button>
-    </SectionCard>
+    </Card>
 
     <EmptyState v-else class="bg-white shadow-sm" title="Este item ainda não possui composição" description="Crie a primeira composição para registrar como o item é produzido.">
       <template #icon><FactoryIcon /></template>
       <template #action><Button @click="newComposition"><template #icon><PlusIcon /></template>Criar primeira composição</Button></template>
     </EmptyState>
 
-    <SectionCard v-if="previousCompositions.length" title="Histórico de versões" description="Versões anteriores permanecem disponíveis e nunca são reescritas.">
+    <Card v-if="previousCompositions.length">
+      <template #header>
+        <h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Histórico de versões</h2>
+        <p class="mt-1 text-sm text-slate-500">Versões anteriores permanecem disponíveis e nunca são reescritas.</p>
+      </template>
       <div class="divide-y divide-slate-200 rounded-lg border border-slate-200">
         <button
           v-for="version in previousCompositions" :key="version.version" type="button"
@@ -91,6 +103,6 @@ onBeforeUnmount(() => { if (loadingTimeout) clearTimeout(loadingTimeout) })
           <span class="text-sm font-medium text-slate-500">{{ version.components.length }} componente{{ version.components.length === 1 ? '' : 's' }}</span>
         </button>
       </div>
-    </SectionCard>
+    </Card>
   </div>
 </template>
