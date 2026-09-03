@@ -2,13 +2,14 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   ArrowRightIcon, Badge, Button, Card, DataTable, EmptyState, Input, Pagination,
-  FactoryIcon, SearchIcon, TriangleAlertIcon, type DataTableColumn, type DataTableRow,
-  type DataTableSortDirection
+  FactoryIcon, SearchIcon, Tabs, TriangleAlertIcon, type DataTableColumn, type DataTableRow,
+  type DataTableSortDirection, type TabItem
 } from '@thiagoschoeffel/ts-components'
 import { getProducibleSummaries } from '../mocks/producibleStore'
 import type { ProducibleItemSummary } from '../types/producible'
 
 type ProducibleListMockScenario = 'padrao' | 'sem-produziveis' | 'sem-resultados' | 'erro'
+type CompositionFilter = 'all' | 'with-composition' | 'without-composition'
 
 const initialParams = new URLSearchParams(window.location.search)
 const validMockScenarios = new Set<ProducibleListMockScenario>(['padrao', 'sem-produziveis', 'sem-resultados', 'erro'])
@@ -23,6 +24,8 @@ type ProducibleSortKey = 'name' | 'currentCompositionVersion' | 'componentCount'
 const validSortKeys = new Set<ProducibleSortKey>(['name', 'currentCompositionVersion', 'componentCount'])
 const search = ref(initialParams.get('busca') ?? (mockScenario === 'sem-resultados' ? 'Produzível inexistente' : ''))
 const debouncedSearch = ref(search.value)
+const validCompositionFilters = new Set<CompositionFilter>(['all', 'with-composition', 'without-composition'])
+const compositionFilter = ref<CompositionFilter>(validCompositionFilters.has(initialParams.get('composicao') as CompositionFilter) ? initialParams.get('composicao') as CompositionFilter : 'all')
 const currentPage = ref(Number.isInteger(initialPage) && initialPage > 0 ? initialPage : 1)
 const activeSortKey = ref<ProducibleSortKey>(validSortKeys.has(initialSortKey as ProducibleSortKey) ? initialSortKey as ProducibleSortKey : 'name')
 const activeSortDirection = ref<DataTableSortDirection>(initialSortDirection === 'desc' ? 'desc' : 'asc')
@@ -38,6 +41,11 @@ const columns: DataTableColumn[] = [
   { key: 'name', label: 'Item', size: 'large', sortable: true },
   { key: 'currentCompositionVersion', label: 'Composição atual', size: 'large', align: 'center', sortable: true },
   { key: 'componentCount', label: 'Componentes', size: 'large', align: 'center', sortable: true }
+]
+const compositionTabs: TabItem[] = [
+  { value: 'all', label: 'Todos' },
+  { value: 'with-composition', label: 'Com composição' },
+  { value: 'without-composition', label: 'Sem composição' }
 ]
 
 watch(search, value => {
@@ -59,6 +67,8 @@ function restoreFromUrl() {
   const page = Number(params.get('pagina'))
   search.value = params.get('busca') ?? ''
   debouncedSearch.value = search.value
+  const requestedComposition = params.get('composicao')
+  compositionFilter.value = validCompositionFilters.has(requestedComposition as CompositionFilter) ? requestedComposition as CompositionFilter : 'all'
   const sortKey = params.get('ordenar')
   const sortDirection = params.get('direcao')
   activeSortKey.value = validSortKeys.has(sortKey as ProducibleSortKey) ? sortKey as ProducibleSortKey : 'name'
@@ -70,6 +80,8 @@ function persistState() {
   const url = new URL(window.location.href)
   if (debouncedSearch.value.trim()) url.searchParams.set('busca', debouncedSearch.value.trim())
   else url.searchParams.delete('busca')
+  if (compositionFilter.value !== 'all') url.searchParams.set('composicao', compositionFilter.value)
+  else url.searchParams.delete('composicao')
   if (activeSortKey.value !== 'name') url.searchParams.set('ordenar', activeSortKey.value)
   else url.searchParams.delete('ordenar')
   if (activeSortDirection.value !== 'asc') url.searchParams.set('direcao', activeSortDirection.value)
@@ -78,14 +90,18 @@ function persistState() {
   else url.searchParams.delete('pagina')
   if (url.href !== window.location.href) window.history.pushState(window.history.state, '', url)
 }
-watch([debouncedSearch, activeSortKey, activeSortDirection], () => { currentPage.value = 1; setLoading() })
-watch([debouncedSearch, activeSortKey, activeSortDirection, currentPage], persistState)
+watch([debouncedSearch, compositionFilter, activeSortKey, activeSortDirection], () => { currentPage.value = 1; setLoading() })
+watch([debouncedSearch, compositionFilter, activeSortKey, activeSortDirection, currentPage], persistState)
 
-const filteredProducibles = computed(() => {
+const produciblesMatchingSearch = computed(() => {
   const query = debouncedSearch.value.trim().toLocaleLowerCase('pt-BR')
-  const matchingItems = producibles.filter(item => !query
+  return producibles.filter(item => !query
     || item.id.toLocaleLowerCase('pt-BR').includes(query)
     || item.name.toLocaleLowerCase('pt-BR').includes(query))
+})
+const filteredProducibles = computed(() => {
+  const matchingItems = produciblesMatchingSearch.value.filter(item => compositionFilter.value === 'all'
+    || (compositionFilter.value === 'with-composition' ? Boolean(item.currentCompositionVersion) : !item.currentCompositionVersion))
   const direction = activeSortDirection.value === 'asc' ? 1 : -1
   return [...matchingItems].sort((first, second) => {
     const firstValue = first[activeSortKey.value] ?? -1
@@ -97,12 +113,19 @@ const filteredProducibles = computed(() => {
 })
 const visibleProducibles = computed(() => filteredProducibles.value.slice((currentPage.value - 1) * itemsPerPage, currentPage.value * itemsPerPage))
 const rows = computed<DataTableRow[]>(() => visibleProducibles.value.map(item => ({ ...item })))
-const hasFilters = computed(() => Boolean(debouncedSearch.value.trim()))
+const tabCounts = computed<Record<string, number>>(() => ({
+  all: produciblesMatchingSearch.value.length,
+  'with-composition': produciblesMatchingSearch.value.filter(item => Boolean(item.currentCompositionVersion)).length,
+  'without-composition': produciblesMatchingSearch.value.filter(item => !item.currentCompositionVersion).length
+}))
+const hasFilters = computed(() => Boolean(debouncedSearch.value.trim()) || compositionFilter.value !== 'all')
 const visibleStart = computed(() => filteredProducibles.value.length === 0 ? 0 : (currentPage.value - 1) * itemsPerPage + 1)
 const visibleEnd = computed(() => Math.min(currentPage.value * itemsPerPage, filteredProducibles.value.length))
 const emptyDescription = computed(() => {
   if (hasLoadingError.value) return 'Verifique a conexão e tente carregar a lista novamente.'
-  if (hasFilters.value) return `Não encontramos itens para “${debouncedSearch.value.trim()}”.`
+  if (debouncedSearch.value.trim()) return `Não encontramos itens para “${debouncedSearch.value.trim()}”.`
+  if (compositionFilter.value === 'with-composition') return 'Nenhum item possui composição cadastrada.'
+  if (compositionFilter.value === 'without-composition') return 'Todos os itens possuem composição cadastrada.'
   return 'Os itens cadastrados aparecerão aqui.'
 })
 
@@ -111,7 +134,7 @@ function listReturnUrl() { return `${window.location.pathname}${window.location.
 function producibleHref(id: string) { return `/produziveis/${id}?retorno=${encodeURIComponent(listReturnUrl())}` }
 function openProducible(id: string) { window.location.assign(producibleHref(id)) }
 function createProducible() { window.location.assign(`/produziveis/novo?retorno=${encodeURIComponent(listReturnUrl())}`) }
-function clearFilters() { search.value = ''; debouncedSearch.value = '' }
+function clearFilters() { search.value = ''; debouncedSearch.value = ''; compositionFilter.value = 'all' }
 function updateSort(state: { key?: string; direction?: DataTableSortDirection }) {
   activeSortKey.value = validSortKeys.has(state.key as ProducibleSortKey) ? state.key as ProducibleSortKey : 'name'
   activeSortDirection.value = state.direction ?? 'asc'
@@ -133,11 +156,14 @@ onBeforeUnmount(() => {
 <template>
   <section class="md:flex md:h-full md:min-h-0 md:flex-col" aria-label="Lista de itens produzíveis">
     <Card class="md:shrink-0 [&>div]:p-4">
-      <Input
-        v-model="search" type="search" aria-label="Buscar produzível por nome ou código"
-        placeholder="Buscar nome ou código..." clearable class="w-full sm:max-w-sm">
-        <template #leading><SearchIcon class="size-4 text-slate-400" aria-hidden="true" /></template>
-      </Input>
+      <Tabs v-model="compositionFilter" :tabs="compositionTabs" aria-label="Produzíveis por composição" size="medium">
+        <template #badge="{ tab }"><Badge size="small" variant="neutral">{{ tabCounts[tab.value] }}</Badge></template>
+        <template #content>
+          <Input v-model="search" type="search" aria-label="Buscar produzível por nome ou código" placeholder="Buscar nome ou código..." clearable class="w-full sm:max-w-sm">
+            <template #leading><SearchIcon class="size-4 text-slate-400" aria-hidden="true" /></template>
+          </Input>
+        </template>
+      </Tabs>
     </Card>
 
     <Card class="mt-4 md:min-h-0 md:flex-1 [&>div]:flex [&>div]:min-h-0 [&>div]:flex-col [&>div]:p-4">

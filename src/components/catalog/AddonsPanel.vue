@@ -2,8 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   Badge, BadgeDollarSignIcon, Button, Card, Checkbox, DataTable, Drawer, EmptyState,
-  Input, Pagination, SearchIcon, Select, TriangleAlertIcon, type DataTableColumn,
-  type DataTableRow, type DataTableSortDirection, type SelectOption
+  Input, Pagination, SearchIcon, Select, Tabs, TriangleAlertIcon, type DataTableColumn,
+  type DataTableRow, type DataTableSortDirection, type SelectOption, type TabItem
 } from '@thiagoschoeffel/ts-components'
 import { formatCurrency, getCatalogAddons, nextCatalogAddonId, saveCatalogAddon } from '../../mocks/catalogStore'
 import { getProducibles } from '../../mocks/producibleStore'
@@ -51,7 +51,7 @@ const items = computed(() => { version.value; return mockScenario === 'sem-adici
 const producibles = computed(() => getProducibles())
 const producibleOptions = computed<SelectOption[]>(() => [{ value: 'none', label: 'Sem item associado' }, ...producibles.value.map(item => ({ value: item.id, label: item.name }))])
 const unitOptions: SelectOption[] = ['g', 'kg', 'ml', 'l', 'un'].map(value => ({ value, label: value }))
-const statusOptions: SelectOption[] = [
+const statusTabs: TabItem[] = [
   { value: 'all', label: 'Todos' },
   { value: 'active', label: 'Ativos' },
   { value: 'inactive', label: 'Inativos' }
@@ -116,15 +116,15 @@ watch([debouncedSearch, status, activeSortKey, activeSortDirection, currentPage]
 function producibleName(id?: string) { return producibles.value.find(item => item.id === id)?.name ?? (id ? 'Produzível indisponível' : 'Não associado') }
 function operationalAmount(item: CatalogAddon) { return item.operationalQuantity ? `${item.operationalQuantity} ${item.operationalUnit}` : '—' }
 
-const filteredItems = computed(() => {
+const itemsMatchingSearch = computed(() => {
   const query = debouncedSearch.value.trim().toLocaleLowerCase('pt-BR')
-  const matchingItems = items.value.filter(item => {
-    const matchesSearch = !query
+  return items.value.filter(item => !query
       || item.id.toLocaleLowerCase('pt-BR').includes(query)
       || item.name.toLocaleLowerCase('pt-BR').includes(query)
-      || producibleName(item.producibleItemId).toLocaleLowerCase('pt-BR').includes(query)
-    return matchesSearch && (status.value === 'all' || item.active === (status.value === 'active'))
-  })
+      || producibleName(item.producibleItemId).toLocaleLowerCase('pt-BR').includes(query))
+})
+const filteredItems = computed(() => {
+  const matchingItems = itemsMatchingSearch.value.filter(item => status.value === 'all' || item.active === (status.value === 'active'))
   const direction = activeSortDirection.value === 'asc' ? 1 : -1
   return [...matchingItems].sort((first, second) => {
     const key = activeSortKey.value
@@ -137,6 +137,11 @@ const filteredItems = computed(() => {
 })
 const visibleItems = computed(() => filteredItems.value.slice((currentPage.value - 1) * itemsPerPage, currentPage.value * itemsPerPage))
 const rows = computed<DataTableRow[]>(() => visibleItems.value.map(item => ({ ...item })))
+const tabCounts = computed<Record<string, number>>(() => ({
+  all: itemsMatchingSearch.value.length,
+  active: itemsMatchingSearch.value.filter(item => item.active).length,
+  inactive: itemsMatchingSearch.value.filter(item => !item.active).length
+}))
 const hasFilters = computed(() => Boolean(debouncedSearch.value.trim()) || status.value !== 'all')
 const visibleStart = computed(() => filteredItems.value.length === 0 ? 0 : (currentPage.value - 1) * itemsPerPage + 1)
 const visibleEnd = computed(() => Math.min(currentPage.value * itemsPerPage, filteredItems.value.length))
@@ -211,12 +216,14 @@ onBeforeUnmount(() => {
 <template>
   <section class="md:flex md:h-full md:min-h-0 md:flex-col" aria-label="Adicionais do catálogo">
     <Card class="md:shrink-0 [&>div]:p-4">
-      <div class="flex flex-wrap items-end gap-3">
-        <Input v-model="search" type="search" aria-label="Buscar adicional por nome, produzível ou código" placeholder="Buscar nome, produzível ou código..." clearable class="w-full sm:max-w-sm [&_input]:pl-10! [&_input]:pr-10!">
-          <template #leading><SearchIcon class="size-4 text-slate-400" aria-hidden="true" /></template>
-        </Input>
-        <Select v-model="status" class="w-full sm:w-40!" aria-label="Filtrar adicionais por status" :options="statusOptions" />
-      </div>
+      <Tabs v-model="status" :tabs="statusTabs" aria-label="Adicionais por status" size="medium">
+        <template #badge="{ tab }"><Badge size="small" :variant="tab.value === 'inactive' && tabCounts[tab.value] ? 'danger' : 'neutral'">{{ tabCounts[tab.value] }}</Badge></template>
+        <template #content>
+          <Input v-model="search" type="search" aria-label="Buscar adicional por nome, produzível ou código" placeholder="Buscar nome, produzível ou código..." clearable class="w-full sm:max-w-sm [&_input]:pl-10! [&_input]:pr-10!">
+            <template #leading><SearchIcon class="size-4 text-slate-400" aria-hidden="true" /></template>
+          </Input>
+        </template>
+      </Tabs>
     </Card>
 
     <Card class="mt-4 md:min-h-0 md:flex-1 [&>div]:flex [&>div]:min-h-0 [&>div]:flex-col [&>div]:p-4">

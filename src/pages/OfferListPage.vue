@@ -2,8 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   ArrowRightIcon, Badge, BoxesIcon, Button, Card, DataTable, EmptyState, Input,
-  Pagination, SearchIcon, Select, TriangleAlertIcon, type DataTableColumn,
-  type DataTableRow, type DataTableSortDirection, type SelectOption
+  Pagination, SearchIcon, Tabs, TriangleAlertIcon, type DataTableColumn,
+  type DataTableRow, type DataTableSortDirection, type TabItem
 } from '@thiagoschoeffel/ts-components'
 import { formatCurrency, getOffers } from '../mocks/catalogStore'
 import type { Offer } from '../types/catalog'
@@ -36,7 +36,7 @@ let loadingTimeout: ReturnType<typeof setTimeout> | undefined
 let restoringHistory = false
 let simulatedFailureShown = false
 
-const statusOptions: SelectOption[] = [
+const statusTabs: TabItem[] = [
   { value: 'all', label: 'Todas' },
   { value: 'active', label: 'Ativas' },
   { value: 'inactive', label: 'Inativas' }
@@ -105,15 +105,15 @@ function structure(offer: Offer) {
   return parts.join(' · ')
 }
 
-const filteredOffers = computed(() => {
+const offersMatchingSearch = computed(() => {
   const query = debouncedSearch.value.trim().toLocaleLowerCase('pt-BR')
-  const matchingOffers = offers.filter(offer => {
-    const matchesSearch = !query
+  return offers.filter(offer => !query
       || offer.id.toLocaleLowerCase('pt-BR').includes(query)
       || offer.name.toLocaleLowerCase('pt-BR').includes(query)
-      || offer.description?.toLocaleLowerCase('pt-BR').includes(query)
-    return matchesSearch && (status.value === 'all' || offer.active === (status.value === 'active'))
-  })
+      || offer.description?.toLocaleLowerCase('pt-BR').includes(query))
+})
+const filteredOffers = computed(() => {
+  const matchingOffers = offersMatchingSearch.value.filter(offer => status.value === 'all' || offer.active === (status.value === 'active'))
   const direction = activeSortDirection.value === 'asc' ? 1 : -1
   return [...matchingOffers].sort((first, second) => {
     const key = activeSortKey.value
@@ -126,6 +126,11 @@ const filteredOffers = computed(() => {
 })
 const visibleOffers = computed(() => filteredOffers.value.slice((currentPage.value - 1) * itemsPerPage, currentPage.value * itemsPerPage))
 const rows = computed<DataTableRow[]>(() => visibleOffers.value.map(offer => ({ ...offer, structure: structureCount(offer), addons: offer.allowedAddonIds.length })))
+const tabCounts = computed<Record<string, number>>(() => ({
+  all: offersMatchingSearch.value.length,
+  active: offersMatchingSearch.value.filter(offer => offer.active).length,
+  inactive: offersMatchingSearch.value.filter(offer => !offer.active).length
+}))
 const hasFilters = computed(() => Boolean(debouncedSearch.value.trim()) || status.value !== 'all')
 const visibleStart = computed(() => filteredOffers.value.length === 0 ? 0 : (currentPage.value - 1) * itemsPerPage + 1)
 const visibleEnd = computed(() => Math.min(currentPage.value * itemsPerPage, filteredOffers.value.length))
@@ -177,12 +182,14 @@ onBeforeUnmount(() => {
 <template>
   <section class="md:flex md:h-full md:min-h-0 md:flex-col" aria-label="Lista de ofertas">
     <Card class="md:shrink-0 [&>div]:p-4">
-      <div class="flex flex-wrap items-end gap-3">
-        <Input v-model="search" type="search" aria-label="Buscar oferta por nome, descrição ou código" placeholder="Buscar nome, descrição ou código..." clearable class="w-full sm:max-w-sm [&_input]:pl-10! [&_input]:pr-10!">
-          <template #leading><SearchIcon class="size-4 text-slate-400" aria-hidden="true" /></template>
-        </Input>
-        <Select v-model="status" class="w-full sm:w-40!" aria-label="Filtrar ofertas por status" :options="statusOptions" />
-      </div>
+      <Tabs v-model="status" :tabs="statusTabs" aria-label="Ofertas por status" size="medium">
+        <template #badge="{ tab }"><Badge size="small" :variant="tab.value === 'inactive' && tabCounts[tab.value] ? 'danger' : 'neutral'">{{ tabCounts[tab.value] }}</Badge></template>
+        <template #content>
+          <Input v-model="search" type="search" aria-label="Buscar oferta por nome, descrição ou código" placeholder="Buscar nome, descrição ou código..." clearable class="w-full sm:max-w-sm [&_input]:pl-10! [&_input]:pr-10!">
+            <template #leading><SearchIcon class="size-4 text-slate-400" aria-hidden="true" /></template>
+          </Input>
+        </template>
+      </Tabs>
     </Card>
 
     <Card class="mt-4 md:min-h-0 md:flex-1 [&>div]:flex [&>div]:min-h-0 [&>div]:flex-col [&>div]:p-4">

@@ -2,8 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   Badge, BoxesIcon, Button, Card, Checkbox, DataTable, Drawer, EmptyState, Input,
-  Pagination, SearchIcon, Select, Textarea, TriangleAlertIcon, type DataTableColumn,
-  type DataTableRow, type DataTableSortDirection, type SelectOption
+  Pagination, sanitizeRichText, SearchIcon, Tabs, Textarea, TriangleAlertIcon, type DataTableColumn,
+  type DataTableRow, type DataTableSortDirection, type TabItem
 } from '@thiagoschoeffel/ts-components'
 import { getComponentTypes, nextComponentTypeId, saveComponentType } from '../../mocks/catalogStore'
 import type { ComponentType } from '../../types/catalog'
@@ -42,8 +42,11 @@ let loadingTimeout: ReturnType<typeof setTimeout> | undefined
 let restoringHistory = false
 let simulatedFailureShown = false
 
+function richTextHtml(value?: string) { return sanitizeRichText(value ?? '') }
+function richTextPlainText(value?: string) { return richTextHtml(value).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() }
+
 const items = computed(() => { version.value; return mockScenario === 'sem-tipos' ? [] : getComponentTypes() })
-const statusOptions: SelectOption[] = [
+const statusTabs: TabItem[] = [
   { value: 'all', label: 'Todos' },
   { value: 'active', label: 'Ativos' },
   { value: 'inactive', label: 'Inativos' }
@@ -103,15 +106,15 @@ watch([debouncedSearch, status, activeSortKey, activeSortDirection], () => {
 })
 watch([debouncedSearch, status, activeSortKey, activeSortDirection, currentPage], persistState)
 
-const filteredItems = computed(() => {
+const itemsMatchingSearch = computed(() => {
   const query = debouncedSearch.value.trim().toLocaleLowerCase('pt-BR')
-  const matchingItems = items.value.filter(item => {
-    const matchesSearch = !query
+  return items.value.filter(item => !query
       || item.id.toLocaleLowerCase('pt-BR').includes(query)
       || item.name.toLocaleLowerCase('pt-BR').includes(query)
-      || item.description?.toLocaleLowerCase('pt-BR').includes(query)
-    return matchesSearch && (status.value === 'all' || item.active === (status.value === 'active'))
-  })
+      || richTextPlainText(item.description).toLocaleLowerCase('pt-BR').includes(query))
+})
+const filteredItems = computed(() => {
+  const matchingItems = itemsMatchingSearch.value.filter(item => status.value === 'all' || item.active === (status.value === 'active'))
   const direction = activeSortDirection.value === 'asc' ? 1 : -1
   return [...matchingItems].sort((first, second) => {
     const firstValue = first[activeSortKey.value] ?? ''
@@ -122,6 +125,11 @@ const filteredItems = computed(() => {
 })
 const visibleItems = computed(() => filteredItems.value.slice((currentPage.value - 1) * itemsPerPage, currentPage.value * itemsPerPage))
 const rows = computed<DataTableRow[]>(() => visibleItems.value.map(item => ({ ...item })))
+const tabCounts = computed<Record<string, number>>(() => ({
+  all: itemsMatchingSearch.value.length,
+  active: itemsMatchingSearch.value.filter(item => item.active).length,
+  inactive: itemsMatchingSearch.value.filter(item => !item.active).length
+}))
 const hasFilters = computed(() => Boolean(debouncedSearch.value.trim()) || status.value !== 'all')
 const visibleStart = computed(() => filteredItems.value.length === 0 ? 0 : (currentPage.value - 1) * itemsPerPage + 1)
 const visibleEnd = computed(() => Math.min(currentPage.value * itemsPerPage, filteredItems.value.length))
@@ -186,12 +194,14 @@ onBeforeUnmount(() => {
 <template>
   <section class="md:flex md:h-full md:min-h-0 md:flex-col" aria-label="Tipos de componente">
     <Card class="md:shrink-0 [&>div]:p-4">
-      <div class="flex flex-wrap items-end gap-3">
-        <Input v-model="search" type="search" aria-label="Buscar tipo por nome, descrição ou código" placeholder="Buscar nome, descrição ou código..." clearable class="w-full sm:max-w-sm [&_input]:pl-10! [&_input]:pr-10!">
-          <template #leading><SearchIcon class="size-4 text-slate-400" aria-hidden="true" /></template>
-        </Input>
-        <Select v-model="status" class="w-full sm:w-40!" aria-label="Filtrar tipos por status" :options="statusOptions" />
-      </div>
+      <Tabs v-model="status" :tabs="statusTabs" aria-label="Tipos de componente por status" size="medium">
+        <template #badge="{ tab }"><Badge size="small" :variant="tab.value === 'inactive' && tabCounts[tab.value] ? 'danger' : 'neutral'">{{ tabCounts[tab.value] }}</Badge></template>
+        <template #content>
+          <Input v-model="search" type="search" aria-label="Buscar tipo por nome, descrição ou código" placeholder="Buscar nome, descrição ou código..." clearable class="w-full sm:max-w-sm [&_input]:pl-10! [&_input]:pr-10!">
+            <template #leading><SearchIcon class="size-4 text-slate-400" aria-hidden="true" /></template>
+          </Input>
+        </template>
+      </Tabs>
     </Card>
 
     <Card class="mt-4 md:min-h-0 md:flex-1 [&>div]:flex [&>div]:min-h-0 [&>div]:flex-col [&>div]:p-4">
@@ -205,7 +215,7 @@ onBeforeUnmount(() => {
         </EmptyState>
         <Card v-for="item in isLoading ? [] : visibleItems" v-else :key="item.id">
           <div class="flex items-start justify-between gap-3"><div><p class="font-semibold text-slate-800">{{ item.name }}</p><p class="mt-1 text-xs text-slate-500">{{ item.id }}</p></div><Badge :variant="item.active ? 'success' : 'danger'">{{ item.active ? 'Ativo' : 'Inativo' }}</Badge></div>
-          <p class="mt-3 text-sm" :class="item.description ? 'text-slate-600' : 'text-slate-400'">{{ item.description || 'Sem descrição' }}</p>
+          <div v-if="item.description" class="mt-3 space-y-2 text-sm text-slate-600 [&_a]:text-blue-600 [&_a]:underline [&_blockquote]:border-l-3 [&_blockquote]:border-slate-300 [&_blockquote]:pl-3 [&_em]:italic [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_s]:line-through [&_strong]:font-semibold [&_u]:underline [&_ul]:list-disc [&_ul]:pl-5" v-html="richTextHtml(item.description)" /><p v-else class="mt-3 text-sm text-slate-400">Sem descrição</p>
           <template #footer><Button class="w-full" size="small" variant="secondary" @click="openForm(item)">Editar</Button></template>
         </Card>
       </div>
@@ -216,7 +226,7 @@ onBeforeUnmount(() => {
         sort-mode="manual" :sort-key="activeSortKey" :sort-direction="activeSortDirection"
         row-key="id" label="Tipos de componente filtrados por busca e status" actions-label="Ação" @sort="updateSort">
         <template #cell-name="{ row }"><p class="font-medium text-slate-800">{{ asType(row).name }}</p><p class="mt-1 text-xs text-slate-500">{{ asType(row).id }}</p></template>
-        <template #cell-description="{ row }"><span :class="asType(row).description ? 'text-slate-600' : 'text-slate-400'">{{ asType(row).description || 'Sem descrição' }}</span></template>
+        <template #cell-description="{ row }"><div v-if="asType(row).description" class="line-clamp-2 max-w-xl whitespace-normal break-words text-slate-600 [&_a]:underline [&_em]:italic [&_s]:line-through [&_strong]:font-semibold [&_u]:underline" v-html="richTextHtml(asType(row).description)" /><span v-else class="text-slate-400">Sem descrição</span></template>
         <template #cell-active="{ row }"><Badge :variant="asType(row).active ? 'success' : 'danger'">{{ asType(row).active ? 'Ativo' : 'Inativo' }}</Badge></template>
         <template #actions="{ row }"><Button size="small" variant="secondary" @click="openForm(asType(row))">Editar</Button></template>
         <template #empty><EmptyState :bordered="false" size="large" :title="hasLoadingError ? 'Não foi possível carregar os tipos' : 'Nenhum tipo encontrado'" :description="emptyDescription" :role="hasLoadingError ? 'alert' : 'status'"><template #icon><TriangleAlertIcon v-if="hasLoadingError" /><BoxesIcon v-else-if="items.length === 0" /><SearchIcon v-else /></template><template #action><Button v-if="hasLoadingError" size="small" variant="secondary" @click="setLoading">Tentar novamente</Button><Button v-else-if="items.length === 0" type="button" size="small" variant="secondary" @click="openForm()">Novo tipo</Button><Button v-else-if="hasFilters" size="small" variant="secondary" @click="clearFilters">Limpar filtros</Button></template></EmptyState></template>
@@ -231,7 +241,7 @@ onBeforeUnmount(() => {
     <Drawer v-model:open="drawerOpen" size="large" :title="editingId ? 'Editar tipo de componente' : 'Novo tipo de componente'" description="Defina um papel comercial reutilizável na estrutura das ofertas.">
       <div class="space-y-5">
         <Input v-model="name" label="Nome do tipo" description="Use um nome curto que identifique o papel na oferta, sem citar um item produzido específico." placeholder="Ex.: Salada P" required :error="nameError" />
-        <Textarea v-model="description" label="Descrição" description="Explique como este tipo deve ser entendido ao configurar ofertas e cardápios." placeholder="Ex.: Porção pequena de salada definida pelo cardápio do dia." :rows="4" />
+        <Textarea v-model="description" label="Descrição" description="Explique como este tipo deve ser entendido ao configurar ofertas e cardápios." rich-text placeholder="Ex.: Porção pequena de salada definida pelo cardápio do dia." :rows="4" />
         <Checkbox v-model="active" label="Tipo ativo" description="Quando inativo, não poderá ser usado em novas configurações, mas continuará legível nas ofertas existentes." />
       </div>
       <template #footer><div class="flex items-center justify-between gap-2"><Button type="button" variant="secondary" @click="drawerOpen = false">Cancelar</Button><Button type="button" @click="save">{{ editingId ? 'Salvar alterações' : 'Adicionar tipo' }}</Button></div></template>

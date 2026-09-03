@@ -67,15 +67,15 @@ onBeforeUnmount(() => window.removeEventListener('popstate', restore))
     <template #content="{ tab }">
       <div class="pt-4 md:flex md:h-full md:min-h-0 md:flex-col">
         <div class="flex shrink-0 flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <header class="flex items-center gap-3 text-slate-800">
+          <header class="flex w-full min-w-0 items-start gap-3 text-slate-800">
             <BoxesIcon class="size-8 shrink-0" :stroke-width="1.75" aria-hidden="true" />
-            <div class="min-w-0">
-              <div class="flex min-w-0 items-center gap-2">
-                <h1 class="m-0 text-2xl font-bold leading-none">Catálogo</h1>
+            <div class="min-w-0 flex-1 overflow-hidden">
+              <div class="flex min-w-0 items-start gap-2 overflow-hidden">
+                <h1 class="m-0 shrink-0 text-2xl font-bold leading-none">Catálogo</h1>
                 <ArrowRightIcon class="size-5 shrink-0 text-slate-400" aria-hidden="true" />
-                <span class="truncate text-2xl font-bold leading-none">{{ activeContent.title }}</span>
+                <span class="min-w-0 text-2xl font-bold leading-tight">{{ activeContent.title }}</span>
               </div>
-              <p class="mt-2 text-sm leading-none text-slate-400">{{ activeContent.subtitle }}</p>
+              <p class="mt-2 text-sm leading-snug text-slate-400">{{ activeContent.subtitle }}</p>
             </div>
           </header>
 

@@ -97,7 +97,7 @@ onBeforeUnmount(() => { if (loadingTimeout) clearTimeout(loadingTimeout) })
         </Card>
       </div>
 
-      <aside class="min-w-0 space-y-4 lg:sticky lg:top-20">
+      <aside class="min-w-0 space-y-4 lg:sticky lg:top-6">
         <Card><template #header><h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Resumo do item</h2><p class="mt-1 text-sm text-slate-500">A identidade permanece estável entre as versões.</p></template>
           <dl class="space-y-3 text-sm">
             <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">Código</dt><dd class="flex min-h-6 items-center justify-end font-medium text-slate-800">{{ item.id }}</dd></div>

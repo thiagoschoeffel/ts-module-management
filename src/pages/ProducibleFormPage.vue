@@ -97,7 +97,7 @@ watch(snapshot, () => { if (savedMessage.value) savedMessage.value = '' })
         </Card>
       </div>
 
-      <aside class="min-w-0 space-y-4 lg:sticky lg:top-20">
+      <aside class="min-w-0 space-y-4 lg:sticky lg:top-6">
         <Card><template #header><h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Resumo</h2><p class="mt-1 text-sm text-slate-500">Confira os dados antes de salvar.</p></template>
           <dl class="space-y-3 text-sm">
             <div v-if="props.mode === 'composition'" class="flex items-center justify-between gap-3"><dt class="text-slate-500">Item</dt><dd class="text-right font-medium text-slate-800">{{ item?.name ?? 'Indisponível' }}</dd></div>

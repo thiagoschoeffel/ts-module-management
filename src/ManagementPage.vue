@@ -5,14 +5,20 @@ import '@thiagoschoeffel/ts-components/style.css'
 import './style.css'
 import { managementPages } from './config/managementPages'
 import { getOffer } from './mocks/catalogStore'
+import { getDeliveryDriver } from './mocks/deliveryDriverStore'
 import { getProducible } from './mocks/producibleStore'
+import { getUser } from './mocks/userStore'
 import CatalogPage from './pages/CatalogPage.vue'
+import DeliveryDriverFormPage from './pages/DeliveryDriverFormPage.vue'
+import DeliveryDriverListPage from './pages/DeliveryDriverListPage.vue'
 import OfferDetailPage from './pages/OfferDetailPage.vue'
 import OfferFormPage from './pages/OfferFormPage.vue'
 import ProducibleDetailPage from './pages/ProducibleDetailPage.vue'
 import ProducibleFormPage from './pages/ProducibleFormPage.vue'
 import ProducibleListPage from './pages/ProducibleListPage.vue'
-import type { CatalogPage as CatalogPageName, ManagementSection, ProduciblePage } from './types/management'
+import UserFormPage from './pages/UserFormPage.vue'
+import UserListPage from './pages/UserListPage.vue'
+import type { CatalogPage as CatalogPageName, DeliveryDriverPage, ManagementSection, ProduciblePage, UserPage } from './types/management'
 
 const props = withDefaults(defineProps<{
   section?: ManagementSection
@@ -20,22 +26,46 @@ const props = withDefaults(defineProps<{
   producibleId?: string
   catalogPage?: CatalogPageName
   offerId?: string
+  deliveryDriverPage?: DeliveryDriverPage
+  deliveryDriverId?: string
+  userPage?: UserPage
+  userId?: string
 }>(), {
   section: 'produziveis',
   produciblePage: 'list',
   producibleId: undefined,
   catalogPage: 'list',
-  offerId: undefined
+  offerId: undefined,
+  deliveryDriverPage: 'list',
+  deliveryDriverId: undefined,
+  userPage: 'list',
+  userId: undefined
 })
 
 const page = computed(() => managementPages[props.section])
 const producible = computed(() => getProducible(props.producibleId))
 const offer = computed(() => getOffer(props.offerId))
+const deliveryDriver = computed(() => getDeliveryDriver(props.deliveryDriverId))
+const user = computed(() => getUser(props.userId))
+const isListPage = computed(() => (props.section === 'produziveis' && props.produciblePage === 'list')
+  || (props.section === 'catalogo' && props.catalogPage === 'list')
+  || (props.section === 'entregadores' && props.deliveryDriverPage === 'list')
+  || (props.section === 'usuarios' && props.userPage === 'list'))
 const pageTitle = computed(() => {
   if (props.section === 'catalogo') {
     if (props.catalogPage === 'new') return 'Nova oferta'
     if (props.catalogPage === 'edit') return offer.value ? `Editar ${offer.value.name}` : 'Editar oferta'
     if (props.catalogPage === 'detail') return offer.value?.name ?? 'Detalhe da oferta'
+    return page.value.title
+  }
+  if (props.section === 'entregadores') {
+    if (props.deliveryDriverPage === 'new') return 'Novo entregador'
+    if (props.deliveryDriverPage === 'edit') return deliveryDriver.value ? `Editar ${deliveryDriver.value.name}` : 'Editar entregador'
+    return page.value.title
+  }
+  if (props.section === 'usuarios') {
+    if (props.userPage === 'new') return 'Novo usuário'
+    if (props.userPage === 'edit') return user.value ? `Editar ${user.value.name}` : 'Editar usuário'
     return page.value.title
   }
   if (props.produciblePage === 'new') return 'Novo item produzível'
@@ -49,6 +79,16 @@ const pageSubtitle = computed(() => {
     if (props.catalogPage === 'new') return 'Configure os dados comerciais, componentes, escolhas e adicionais.'
     if (props.catalogPage === 'edit') return 'Atualize a configuração comercial atual da oferta.'
     if (props.catalogPage === 'detail') return offer.value ? `${offer.value.id} · configuração comercial` : undefined
+    return page.value.subtitle
+  }
+  if (props.section === 'entregadores') {
+    if (props.deliveryDriverPage === 'new') return 'Cadastre quem poderá ser selecionado em clientes e rotas.'
+    if (props.deliveryDriverPage === 'edit') return 'Atualize os dados atuais do entregador.'
+    return page.value.subtitle
+  }
+  if (props.section === 'usuarios') {
+    if (props.userPage === 'new') return 'Cadastre uma pessoa e defina seu perfil inicial de acesso.'
+    if (props.userPage === 'edit') return 'Atualize a identificação, o perfil ou o status do usuário.'
     return page.value.subtitle
   }
   if (props.produciblePage === 'new') return 'Cadastre a identidade do item e, se desejar, sua primeira composição.'
@@ -70,14 +110,28 @@ function catalogReturnUrl() {
   const candidate = new URLSearchParams(window.location.search).get('retorno')
   return candidate && /^\/catalogo(?:\?.*)?$/.test(candidate) ? candidate : '/catalogo'
 }
+function deliveryDriverReturnUrl() {
+  const candidate = new URLSearchParams(window.location.search).get('retorno')
+  return candidate && /^\/entregadores(?:\?.*)?$/.test(candidate) ? candidate : '/entregadores'
+}
+function createDeliveryDriver() {
+  const current = `${window.location.pathname}${window.location.search}`
+  window.location.assign(`/entregadores/novo?retorno=${encodeURIComponent(current)}`)
+}
+function userReturnUrl() {
+  const candidate = new URLSearchParams(window.location.search).get('retorno')
+  return candidate && /^\/usuarios(?:\?.*)?$/.test(candidate) ? candidate : '/usuarios'
+}
+function createUser() {
+  const current = `${window.location.pathname}${window.location.search}`
+  window.location.assign(`/usuarios/novo?retorno=${encodeURIComponent(current)}`)
+}
 </script>
 
 <template>
   <div
     class="isolate"
-    :class="(props.section === 'produziveis' && props.produciblePage === 'list') || (props.section === 'catalogo' && props.catalogPage === 'list')
-      ? 'md:flex md:h-[calc(100dvh-11rem)] md:min-h-0 md:flex-col'
-      : ''">
+    :class="isListPage ? 'md:flex md:h-[calc(100dvh-11rem)] md:min-h-0 md:flex-col' : ''">
     <div v-if="!(props.section === 'catalogo' && props.catalogPage === 'list')" class="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
       <PageHeader :title="pageTitle" :subtitle="pageSubtitle">
         <template #icon><component :is="page.icon" :size="32" :stroke-width="1.75" /></template>
@@ -100,12 +154,32 @@ function catalogReturnUrl() {
         <ChevronLeftIcon class="size-4" aria-hidden="true" />
         {{ props.catalogPage === 'detail' ? 'Voltar para o Catálogo' : props.offerId ? 'Voltar para a oferta' : 'Voltar para o Catálogo' }}
       </a>
+      <a
+        v-if="props.section === 'entregadores' && props.deliveryDriverPage !== 'list'"
+        :href="deliveryDriverReturnUrl()"
+        class="hidden items-center gap-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-800 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 sm:inline-flex">
+        <ChevronLeftIcon class="size-4" aria-hidden="true" />
+        Voltar para entregadores
+      </a>
+      <Button v-if="props.section === 'entregadores' && props.deliveryDriverPage === 'list'" type="button" @click="createDeliveryDriver">
+        <template #icon><PlusIcon /></template>Novo entregador
+      </Button>
+      <a
+        v-if="props.section === 'usuarios' && props.userPage !== 'list'"
+        :href="userReturnUrl()"
+        class="hidden items-center gap-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-800 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 sm:inline-flex">
+        <ChevronLeftIcon class="size-4" aria-hidden="true" />
+        Voltar para usuários
+      </a>
+      <Button v-if="props.section === 'usuarios' && props.userPage === 'list'" type="button" @click="createUser">
+        <template #icon><PlusIcon /></template>Novo usuário
+      </Button>
     </div>
 
     <main
       :class="[
         props.section === 'catalogo' && props.catalogPage === 'list' ? '' : 'mt-6',
-        (props.section === 'produziveis' && props.produciblePage === 'list') || (props.section === 'catalogo' && props.catalogPage === 'list') ? 'md:min-h-0 md:flex-1' : ''
+        isListPage ? 'md:min-h-0 md:flex-1' : ''
       ]">
       <template v-if="props.section === 'produziveis'">
         <ProducibleListPage v-if="props.produciblePage === 'list'" />
@@ -119,6 +193,14 @@ function catalogReturnUrl() {
         <OfferFormPage v-else-if="props.catalogPage === 'new'" mode="create" />
         <OfferFormPage v-else-if="props.catalogPage === 'edit'" mode="edit" :offer-id="props.offerId" />
         <OfferDetailPage v-else :offer-id="props.offerId" />
+      </template>
+      <template v-else-if="props.section === 'entregadores'">
+        <DeliveryDriverListPage v-if="props.deliveryDriverPage === 'list'" />
+        <DeliveryDriverFormPage v-else :mode="props.deliveryDriverPage === 'edit' ? 'edit' : 'create'" :driver-id="props.deliveryDriverId" />
+      </template>
+      <template v-else-if="props.section === 'usuarios'">
+        <UserListPage v-if="props.userPage === 'list'" />
+        <UserFormPage v-else :mode="props.userPage === 'edit' ? 'edit' : 'create'" :user-id="props.userId" />
       </template>
       <EmptyState v-else class="bg-white shadow-sm" title="Experiência ainda não disponível" description="Esta área de Gestão será implementada em uma entrega futura." />
     </main>
