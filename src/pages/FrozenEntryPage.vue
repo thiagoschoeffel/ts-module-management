@@ -89,8 +89,7 @@ function finish() {
   navigate(`${destination.pathname}${destination.search}`)
 }
 function updatePrintDialog(open: boolean) {
-  if (open) printDialogOpen.value = true
-  else finish()
+  printDialogOpen.value = open
 }
 function cancel() {
   if (isDirty.value) cancelConfirmationOpen.value = true
@@ -282,7 +281,6 @@ onBeforeUnmount(() => {
       title="Entrada registrada"
       :description="`Lote ${savedLot?.id ?? ''} criado. A impressão não altera o estoque.`"
       size="large"
-      :show-close="false"
       @update:open="updatePrintDialog">
       <div v-if="labelSnapshot" class="grid gap-5 sm:grid-cols-[minmax(0,1fr)_13rem] sm:items-start">
         <PrintPreview variant="label" format="100 × 50 mm" aria-label="Pré-visualização da etiqueta do lote">
