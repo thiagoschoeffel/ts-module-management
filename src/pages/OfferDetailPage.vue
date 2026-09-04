@@ -34,7 +34,7 @@ onBeforeUnmount(() => { if (timeout) clearTimeout(timeout) })
               <div class="flex items-start justify-between gap-3"><div><p class="text-xs font-medium uppercase tracking-wide text-slate-400">Tipo de componente</p><p class="mt-1 font-medium text-slate-800">{{ typeName(component.componentTypeId) }}</p></div><p class="shrink-0 font-medium text-slate-700">{{ component.quantity }}</p></div>
             </div>
           </div>
-          <div class="hidden overflow-hidden rounded-lg border border-slate-200 md:block">
+          <div class="desktop-only-block overflow-hidden rounded-lg border border-slate-200">
             <table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 font-semibold">Tipo de componente</th><th class="px-4 py-3 text-right font-semibold">Quantidade</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white"><tr v-for="component in offer.components" :key="component.id"><td class="px-4 py-3 font-medium text-slate-800">{{ typeName(component.componentTypeId) }}</td><td class="px-4 py-3 text-right font-medium text-slate-700">{{ component.quantity }}</td></tr></tbody></table>
           </div>
         </template>
@@ -50,7 +50,7 @@ onBeforeUnmount(() => { if (timeout) clearTimeout(timeout) })
               <div class="flex items-start justify-between gap-3"><div><p class="text-xs font-medium uppercase tracking-wide text-slate-400">Adicional</p><p class="mt-1 font-medium text-slate-800">{{ addon(id)?.name || 'Adicional indisponível' }}<span v-if="addon(id) && !addon(id)?.active" class="ml-1 text-xs text-slate-400">(inativo)</span></p></div><p class="shrink-0 font-medium text-slate-700">{{ addon(id) ? formatCurrency(addon(id)!.price) : '—' }}</p></div>
             </div>
           </div>
-          <div class="hidden overflow-hidden rounded-lg border border-slate-200 md:block">
+          <div class="desktop-only-block overflow-hidden rounded-lg border border-slate-200">
             <table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 font-semibold">Adicional</th><th class="px-4 py-3 text-right font-semibold">Preço</th></tr></thead><tbody class="divide-y divide-slate-200 bg-white"><tr v-for="id in offer.allowedAddonIds" :key="id"><td class="px-4 py-3 font-medium text-slate-800">{{ addon(id)?.name || 'Adicional indisponível' }}<span v-if="addon(id) && !addon(id)?.active" class="ml-1 text-xs text-slate-400">(inativo)</span></td><td class="px-4 py-3 text-right font-medium text-slate-700">{{ addon(id) ? formatCurrency(addon(id)!.price) : '—' }}</td></tr></tbody></table>
           </div>
         </template>
@@ -74,7 +74,7 @@ onBeforeUnmount(() => { if (timeout) clearTimeout(timeout) })
                 </div>
               </div>
             </div>
-            <div class="mt-4 hidden overflow-hidden rounded-lg border border-slate-200 md:block">
+            <div class="desktop-only-block mt-4 overflow-hidden rounded-lg border border-slate-200">
               <table class="w-full text-left text-sm">
                 <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 font-semibold">Tipo de componente</th><th class="px-4 py-3 text-right font-semibold">Acréscimo</th></tr></thead>
                 <tbody class="divide-y divide-slate-200 bg-white"><tr v-for="option in group.options" :key="option.id"><td class="px-4 py-3 font-medium text-slate-800">{{ typeName(option.componentTypeId) }}</td><td class="px-4 py-3 text-right font-medium" :class="option.surcharge ? 'text-emerald-600' : 'text-slate-400'">{{ option.surcharge ? `+ ${formatCurrency(option.surcharge)}` : 'Sem acréscimo' }}</td></tr></tbody>

@@ -76,7 +76,7 @@ onBeforeUnmount(() => { if (loadingTimeout) clearTimeout(loadingTimeout) })
               <Badge class="mt-2" size="small" :variant="component.kind === 'producible-item' ? 'info' : 'neutral'">{{ component.kind === 'producible-item' ? 'Preparação' : 'Ingrediente' }}</Badge>
             </div>
           </div>
-          <div class="mt-4 hidden overflow-hidden rounded-lg border border-slate-200 md:block">
+          <div class="desktop-only-block mt-4 overflow-hidden rounded-lg border border-slate-200">
             <table class="w-full text-left text-sm">
               <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 font-semibold">Componente</th><th class="px-4 py-3 font-semibold">Tipo</th><th class="px-4 py-3 text-right font-semibold">Quantidade</th></tr></thead>
               <tbody class="divide-y divide-slate-200 bg-white"><tr v-for="component in displayedComposition.components" :key="component.id"><td class="px-4 py-3 font-medium text-slate-800">{{ component.name }}</td><td class="px-4 py-3"><Badge :variant="component.kind === 'producible-item' ? 'info' : 'neutral'">{{ component.kind === 'producible-item' ? 'Preparação' : 'Ingrediente' }}</Badge></td><td class="px-4 py-3 text-right font-medium text-slate-700">{{ component.quantity }} {{ component.unit }}</td></tr></tbody>

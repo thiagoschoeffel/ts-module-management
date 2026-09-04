@@ -173,7 +173,7 @@ function invalid(group: OfferChoiceGroup) {
             </div>
           </div>
         </div>
-        <div class="mt-4 hidden overflow-hidden rounded-lg border border-slate-200 md:block">
+        <div class="desktop-only-block mt-4 overflow-hidden rounded-lg border border-slate-200">
           <table class="w-full text-left text-sm">
             <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 font-semibold">Tipo de componente</th><th class="px-4 py-3 text-right font-semibold">Acréscimo</th></tr></thead>
             <tbody class="divide-y divide-slate-200 bg-white"><tr v-for="option in group.options" :key="option.id"><td class="px-4 py-3 font-medium text-slate-800">{{ typeName(option.componentTypeId) }}</td><td class="px-4 py-3 text-right font-medium" :class="option.surcharge ? 'text-emerald-600' : 'text-slate-400'">{{ option.surcharge ? `+ ${formatCurrency(option.surcharge)}` : 'Sem acréscimo' }}</td></tr></tbody>

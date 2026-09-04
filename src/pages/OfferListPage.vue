@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
       </div>
 
       <DataTable
-        :class="['hidden min-h-0 flex-1 md:flex', !isLoading && (hasLoadingError || visibleOffers.length === 0) ? '[&_table]:h-full [&_tbody>tr>td]:align-middle' : '']"
+        :class="['desktop-only-flex min-h-0 flex-1', !isLoading && (hasLoadingError || visibleOffers.length === 0) ? '[&_table]:h-full [&_tbody>tr>td]:align-middle' : '']"
         :columns="columns" :rows="hasLoadingError ? [] : rows" :selectable="false" :loading="isLoading && !hasLoadingError"
         sort-mode="manual" :sort-key="activeSortKey" :sort-direction="activeSortDirection"
         row-key="id" label="Ofertas filtradas por busca e status" actions-label="Ação" @sort="updateSort">

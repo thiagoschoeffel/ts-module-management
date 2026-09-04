@@ -191,7 +191,7 @@ onBeforeUnmount(() => {
         </Card>
       </div>
 
-      <DataTable :class="['hidden min-h-0 flex-1 md:flex', !isLoading && (hasLoadingError || visibleUsers.length === 0) ? '[&_table]:h-full [&_tbody>tr>td]:align-middle' : '']" :columns="columns" :rows="hasLoadingError ? [] : rows" :selectable="false" :loading="isLoading && !hasLoadingError" sort-mode="manual" :sort-key="sortKey" :sort-direction="sortDirection" row-key="id" label="Usuários filtrados por status e busca" actions-label="Ação" @sort="updateSort">
+      <DataTable :class="['desktop-only-flex min-h-0 flex-1', !isLoading && (hasLoadingError || visibleUsers.length === 0) ? '[&_table]:h-full [&_tbody>tr>td]:align-middle' : '']" :columns="columns" :rows="hasLoadingError ? [] : rows" :selectable="false" :loading="isLoading && !hasLoadingError" sort-mode="manual" :sort-key="sortKey" :sort-direction="sortDirection" row-key="id" label="Usuários filtrados por status e busca" actions-label="Ação" @sort="updateSort">
         <template #cell-name="{ row }"><p class="font-medium text-slate-800">{{ asUser(row).name }}</p><p class="mt-1 text-xs text-slate-500">{{ asUser(row).id }}</p></template>
         <template #cell-accessId="{ row }"><span class="font-medium text-slate-700">{{ asUser(row).accessId }}</span></template>
         <template #cell-role="{ row }"><Badge :variant="userRoleBadgeVariants[asUser(row).role]">{{ userRoleLabels[asUser(row).role] }}</Badge></template>
