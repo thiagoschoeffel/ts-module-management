@@ -4,6 +4,7 @@ import { Alert, AlertDialog, Badge, Button, Card, CheckIcon, InfoIcon, Input, Tr
 import CompositionEditor from '../components/producibles/CompositionEditor.vue'
 import { addCompositionVersion, createProducible, getCurrentComposition, getProducible, updateProducibleName } from '../mocks/producibleStore'
 import type { CompositionComponent } from '../types/producible'
+import { navigate } from '../utils/navigation'
 
 const props = withDefaults(defineProps<{
   mode?: 'create' | 'edit' | 'composition'
@@ -33,7 +34,7 @@ function returnUrl() {
 }
 function detailUrl(id: string) { return `/produziveis/${id}?retorno=${encodeURIComponent(returnUrl())}` }
 function leavePage() {
-  window.location.assign(props.producibleId && props.mode !== 'create' ? detailUrl(props.producibleId) : returnUrl())
+  navigate(props.producibleId && props.mode !== 'create' ? detailUrl(props.producibleId) : returnUrl())
 }
 function cancel() { if (isDirty.value) cancelConfirmationOpen.value = true; else leavePage() }
 function save() {
@@ -48,7 +49,7 @@ function save() {
     saving.value = false
     initialSnapshot.value = snapshot.value
     savedMessage.value = props.mode === 'create' ? 'Item produzível criado com sucesso.' : props.mode === 'edit' ? 'Dados básicos atualizados.' : 'Nova versão de composição criada.'
-    if (savedId) navigationTimeout = setTimeout(() => window.location.assign(detailUrl(savedId)), 700)
+    if (savedId) navigationTimeout = setTimeout(() => navigate(detailUrl(savedId)), 700)
   }, 450)
 }
 function warnBeforeUnload(event: BeforeUnloadEvent) {

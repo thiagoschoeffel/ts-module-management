@@ -7,6 +7,7 @@ import {
 } from '@thiagoschoeffel/ts-components'
 import { getProducibleSummaries } from '../mocks/producibleStore'
 import type { ProducibleItemSummary } from '../types/producible'
+import { navigate } from '../utils/navigation'
 
 type ProducibleListMockScenario = 'padrao' | 'sem-produziveis' | 'sem-resultados' | 'erro'
 type CompositionFilter = 'all' | 'with-composition' | 'without-composition'
@@ -132,8 +133,8 @@ const emptyDescription = computed(() => {
 function asProducible(row: DataTableRow) { return row as unknown as ProducibleItemSummary }
 function listReturnUrl() { return `${window.location.pathname}${window.location.search}` }
 function producibleHref(id: string) { return `/produziveis/${id}?retorno=${encodeURIComponent(listReturnUrl())}` }
-function openProducible(id: string) { window.location.assign(producibleHref(id)) }
-function createProducible() { window.location.assign(`/produziveis/novo?retorno=${encodeURIComponent(listReturnUrl())}`) }
+function openProducible(id: string) { navigate(producibleHref(id)) }
+function createProducible() { navigate(`/produziveis/novo?retorno=${encodeURIComponent(listReturnUrl())}`) }
 function clearFilters() { search.value = ''; debouncedSearch.value = ''; compositionFilter.value = 'all' }
 function updateSort(state: { key?: string; direction?: DataTableSortDirection }) {
   activeSortKey.value = validSortKeys.has(state.key as ProducibleSortKey) ? state.key as ProducibleSortKey : 'name'

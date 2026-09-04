@@ -7,6 +7,7 @@ import {
 } from '@thiagoschoeffel/ts-components'
 import { getDeliveryDrivers } from '../mocks/deliveryDriverStore'
 import type { DeliveryDriver } from '../types/deliveryDriver'
+import { navigate } from '../utils/navigation'
 
 type DriverStatus = 'todos' | 'ativos' | 'inativos'
 type DriverSortKey = 'name' | 'phone' | 'active'
@@ -130,8 +131,8 @@ const emptyDescription = computed(() => {
 function asDriver(row: DataTableRow) { return row as unknown as DeliveryDriver }
 function listReturnUrl() { return `${window.location.pathname}${window.location.search}` }
 function editHref(id: string) { return `/entregadores/${id}/editar?retorno=${encodeURIComponent(listReturnUrl())}` }
-function editDriver(id: string) { window.location.assign(editHref(id)) }
-function createDriver() { window.location.assign(`/entregadores/novo?retorno=${encodeURIComponent(listReturnUrl())}`) }
+function editDriver(id: string) { navigate(editHref(id)) }
+function createDriver() { navigate(`/entregadores/novo?retorno=${encodeURIComponent(listReturnUrl())}`) }
 function clearFilters() { search.value = ''; debouncedSearch.value = ''; status.value = 'todos' }
 function updateSort(state: { key?: string; direction?: DataTableSortDirection }) {
   sortKey.value = validSortKeys.has(state.key as DriverSortKey) ? state.key as DriverSortKey : 'name'

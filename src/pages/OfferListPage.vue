@@ -7,6 +7,7 @@ import {
 } from '@thiagoschoeffel/ts-components'
 import { formatCurrency, getOffers } from '../mocks/catalogStore'
 import type { Offer } from '../types/catalog'
+import { navigate } from '../utils/navigation'
 
 type StatusFilter = 'all' | 'active' | 'inactive'
 type OfferSortKey = 'name' | 'basePrice' | 'structure' | 'addons' | 'active'
@@ -149,8 +150,8 @@ const emptyDescription = computed(() => {
 function asOffer(row: DataTableRow) { return row as unknown as Offer }
 function listReturnUrl() { return `${window.location.pathname}${window.location.search}` }
 function offerHref(id: string) { return `/catalogo/${id}?retorno=${encodeURIComponent(listReturnUrl())}` }
-function openOffer(id: string) { window.location.assign(offerHref(id)) }
-function createOffer() { window.location.assign(`/catalogo/novo?retorno=${encodeURIComponent(listReturnUrl())}`) }
+function openOffer(id: string) { navigate(offerHref(id)) }
+function createOffer() { navigate(`/catalogo/novo?retorno=${encodeURIComponent(listReturnUrl())}`) }
 function clearFilters() { search.value = ''; debouncedSearch.value = ''; status.value = 'all' }
 function updateSort(state: { key?: string, direction?: DataTableSortDirection }) {
   activeSortKey.value = validSortKeys.has(state.key as OfferSortKey) ? state.key as OfferSortKey : 'name'

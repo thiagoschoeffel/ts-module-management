@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Alert, AlertDialog, Badge, Button, Card, Checkbox, CheckIcon, Input, TriangleAlertIcon } from '@thiagoschoeffel/ts-components'
 import { getDeliveryDriver, nextDeliveryDriverId, saveDeliveryDriver } from '../mocks/deliveryDriverStore'
+import { navigate } from '../utils/navigation'
 
 const props = withDefaults(defineProps<{ mode?: 'create' | 'edit'; driverId?: string }>(), {
   mode: 'create', driverId: undefined
@@ -45,7 +46,7 @@ function returnUrl() {
   const candidate = new URLSearchParams(window.location.search).get('retorno')
   return candidate && /^\/entregadores(?:\?.*)?$/.test(candidate) ? candidate : '/entregadores'
 }
-function leavePage() { window.location.assign(returnUrl()) }
+function leavePage() { navigate(returnUrl()) }
 function cancel() { if (isDirty.value) cancelConfirmationOpen.value = true; else leavePage() }
 function save() {
   showValidation.value = true

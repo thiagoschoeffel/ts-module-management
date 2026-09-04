@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Badge, BadgeDollarSignIcon, BoxesIcon, Button, Card, EmptyState, ListIcon, sanitizeRichText, TriangleAlertIcon } from '@thiagoschoeffel/ts-components'
 import { formatCurrency, getCatalogAddon, getComponentType, getOffer } from '../mocks/catalogStore'
+import { navigate } from '../utils/navigation'
 
 const props = defineProps<{ offerId?: string }>()
 const loading = ref(true)
@@ -11,7 +12,7 @@ const offer = computed(() => getOffer(props.offerId))
 const sanitizedDescription = computed(() => sanitizeRichText(offer.value?.description ?? ''))
 function load() { failed.value = false; loading.value = true; if (timeout) clearTimeout(timeout); timeout = setTimeout(() => loading.value = false, 300) }
 function returnUrl() { const candidate = new URLSearchParams(window.location.search).get('retorno'); return candidate && /^\/catalogo(?:\?.*)?$/.test(candidate) ? candidate : '/catalogo' }
-function edit() { if (offer.value) window.location.assign(`/catalogo/${offer.value.id}/editar?retorno=${encodeURIComponent(returnUrl())}`) }
+function edit() { if (offer.value) navigate(`/catalogo/${offer.value.id}/editar?retorno=${encodeURIComponent(returnUrl())}`) }
 function typeName(id: string) { const item = getComponentType(id); return item ? `${item.name}${item.active ? '' : ' (inativo)'}` : 'Tipo indisponível' }
 function addon(id: string) { return getCatalogAddon(id) }
 function selectionRule(min: number, max: number) { if (min === 1 && max === 1) return 'Escolha exatamente 1'; if (min === max) return `Escolha exatamente ${min}`; return `Escolha de ${min} a ${max}` }

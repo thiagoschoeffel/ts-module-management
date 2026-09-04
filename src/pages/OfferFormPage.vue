@@ -5,6 +5,7 @@ import ChoiceGroupsEditor from '../components/catalog/ChoiceGroupsEditor.vue'
 import OfferComponentsEditor from '../components/catalog/OfferComponentsEditor.vue'
 import { formatCurrency, getCatalogAddons, getOffer, nextOfferId, saveOffer } from '../mocks/catalogStore'
 import type { Offer, OfferChoiceGroup, OfferComponent } from '../types/catalog'
+import { navigate } from '../utils/navigation'
 
 const props = withDefaults(defineProps<{ mode?: 'create' | 'edit'; offerId?: string }>(), { mode: 'create', offerId: undefined })
 const existing = computed(() => getOffer(props.offerId))
@@ -34,7 +35,7 @@ const addonsInvalid = computed(() => new Set(allowedAddonIds.value).size !== all
 
 function returnUrl() { const candidate = new URLSearchParams(window.location.search).get('retorno'); return candidate && /^\/catalogo(?:\?.*)?$/.test(candidate) ? candidate : '/catalogo' }
 function detailUrl(id: string) { return `/catalogo/${id}?retorno=${encodeURIComponent(returnUrl())}` }
-function leave() { window.location.assign(props.mode === 'edit' && props.offerId ? detailUrl(props.offerId) : returnUrl()) }
+function leave() { navigate(props.mode === 'edit' && props.offerId ? detailUrl(props.offerId) : returnUrl()) }
 function cancel() { if (isDirty.value) cancelConfirmationOpen.value = true; else leave() }
 function save() {
   showValidation.value = true
@@ -42,7 +43,7 @@ function save() {
   saving.value = true
   const id = props.mode === 'edit' && props.offerId ? props.offerId : nextOfferId()
   const offer: Offer = { id, name: name.value.trim(), description: description.value.trim() || undefined, basePrice: Number(basePrice.value), active: active.value, requiresMenuChoice: requiresMenuChoice.value, components: structuredClone(components.value), choiceGroups: structuredClone(choiceGroups.value), allowedAddonIds: [...new Set(allowedAddonIds.value)] }
-  navigationTimeout = setTimeout(() => { saveOffer(offer); saving.value = false; initialSnapshot.value = snapshot.value; savedMessage.value = props.mode === 'edit' ? 'Alterações da oferta salvas.' : 'Oferta criada com sucesso.'; navigationTimeout = setTimeout(() => window.location.assign(detailUrl(id)), 700) }, 450)
+  navigationTimeout = setTimeout(() => { saveOffer(offer); saving.value = false; initialSnapshot.value = snapshot.value; savedMessage.value = props.mode === 'edit' ? 'Alterações da oferta salvas.' : 'Oferta criada com sucesso.'; navigationTimeout = setTimeout(() => navigate(detailUrl(id)), 700) }, 450)
 }
 function warn(event: BeforeUnloadEvent) { if (!isDirty.value || savedMessage.value) return; event.preventDefault(); event.returnValue = '' }
 onMounted(() => {

@@ -4,6 +4,7 @@ import { ArrowRightIcon, BoxesIcon, Button, PlusIcon, Tabs, type TabItem } from 
 import AddonsPanel from '../components/catalog/AddonsPanel.vue'
 import ComponentTypesPanel from '../components/catalog/ComponentTypesPanel.vue'
 import type { CatalogSection } from '../types/catalog'
+import { navigate } from '../utils/navigation'
 import OfferListPage from './OfferListPage.vue'
 
 type CatalogPanel = { openCreate: () => void }
@@ -44,7 +45,7 @@ function updateSection(value: string) {
 }
 function createOffer() {
   const current = `${window.location.pathname}${window.location.search}`
-  window.location.assign(`/catalogo/novo?retorno=${encodeURIComponent(current)}`)
+  navigate(`/catalogo/novo?retorno=${encodeURIComponent(current)}`)
 }
 function createCurrent() {
   if (activeSection.value === 'ofertas') createOffer()

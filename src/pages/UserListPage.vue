@@ -8,6 +8,7 @@ import {
 import { getUsers } from '../mocks/userStore'
 import type { ManagementUser } from '../types/user'
 import { userRoleBadgeVariants, userRoleLabels } from '../types/user'
+import { navigate } from '../utils/navigation'
 
 type UserStatus = 'todos' | 'ativos' | 'inativos'
 type UserSortKey = 'name' | 'accessId' | 'role' | 'active'
@@ -132,8 +133,8 @@ const emptyDescription = computed(() => {
 function asUser(row: DataTableRow) { return row as unknown as ManagementUser }
 function listReturnUrl() { return `${window.location.pathname}${window.location.search}` }
 function editHref(id: string) { return `/usuarios/${id}/editar?retorno=${encodeURIComponent(listReturnUrl())}` }
-function editUser(id: string) { window.location.assign(editHref(id)) }
-function createUser() { window.location.assign(`/usuarios/novo?retorno=${encodeURIComponent(listReturnUrl())}`) }
+function editUser(id: string) { navigate(editHref(id)) }
+function createUser() { navigate(`/usuarios/novo?retorno=${encodeURIComponent(listReturnUrl())}`) }
 function clearFilters() { search.value = ''; debouncedSearch.value = ''; status.value = 'todos' }
 function updateSort(state: { key?: string; direction?: DataTableSortDirection }) {
   sortKey.value = validSortKeys.has(state.key as UserSortKey) ? state.key as UserSortKey : 'name'

@@ -7,6 +7,7 @@ import {
 import { accessIdAlreadyExists, getUser, nextUserId, saveUser } from '../mocks/userStore'
 import type { UserRole } from '../types/user'
 import { userRoleBadgeVariants, userRoleLabels } from '../types/user'
+import { navigate } from '../utils/navigation'
 
 const props = withDefaults(defineProps<{ mode?: 'create' | 'edit'; userId?: string }>(), {
   mode: 'create', userId: undefined
@@ -41,7 +42,7 @@ function returnUrl() {
   const candidate = new URLSearchParams(window.location.search).get('retorno')
   return candidate && /^\/usuarios(?:\?.*)?$/.test(candidate) ? candidate : '/usuarios'
 }
-function leavePage() { window.location.assign(returnUrl()) }
+function leavePage() { navigate(returnUrl()) }
 function cancel() { if (isDirty.value) cancelConfirmationOpen.value = true; else leavePage() }
 function save() {
   showValidation.value = true

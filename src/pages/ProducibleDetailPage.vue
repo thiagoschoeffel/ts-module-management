@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Alert, Badge, Button, Card, ChevronLeftIcon, EmptyState, FactoryIcon, InfoIcon, PlusIcon, TriangleAlertIcon } from '@thiagoschoeffel/ts-components'
 import { getCurrentComposition, getProducible } from '../mocks/producibleStore'
+import { navigate } from '../utils/navigation'
 
 const props = defineProps<{ producibleId?: string }>()
 const loading = ref(true)
@@ -26,8 +27,8 @@ function returnUrl() {
   const candidate = new URLSearchParams(window.location.search).get('retorno')
   return candidate && /^\/produziveis(?:\?.*)?$/.test(candidate) ? candidate : '/produziveis'
 }
-function edit() { if (item.value) window.location.assign(`/produziveis/${item.value.id}/editar?retorno=${encodeURIComponent(returnUrl())}`) }
-function newComposition() { if (item.value) window.location.assign(`/produziveis/${item.value.id}/composicao/nova?retorno=${encodeURIComponent(returnUrl())}`) }
+function edit() { if (item.value) navigate(`/produziveis/${item.value.id}/editar?retorno=${encodeURIComponent(returnUrl())}`) }
+function newComposition() { if (item.value) navigate(`/produziveis/${item.value.id}/composicao/nova?retorno=${encodeURIComponent(returnUrl())}`) }
 function formatDate(value: string) { return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(new Date(value)) }
 
 onMounted(load)
