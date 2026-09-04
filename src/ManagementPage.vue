@@ -19,6 +19,7 @@ import ProducibleListPage from './pages/ProducibleListPage.vue'
 import UserFormPage from './pages/UserFormPage.vue'
 import UserListPage from './pages/UserListPage.vue'
 import type { CatalogPage as CatalogPageName, DeliveryDriverPage, ManagementSection, ProduciblePage, UserPage } from './types/management'
+import { navigate } from './utils/navigation'
 
 const props = withDefaults(defineProps<{
   section?: ManagementSection
@@ -104,7 +105,7 @@ function listReturnUrl() {
 }
 function createProducible() {
   const current = `${window.location.pathname}${window.location.search}`
-  window.location.assign(`/produziveis/novo?retorno=${encodeURIComponent(current)}`)
+  navigate(`/produziveis/novo?retorno=${encodeURIComponent(current)}`)
 }
 function catalogReturnUrl() {
   const candidate = new URLSearchParams(window.location.search).get('retorno')
@@ -116,7 +117,7 @@ function deliveryDriverReturnUrl() {
 }
 function createDeliveryDriver() {
   const current = `${window.location.pathname}${window.location.search}`
-  window.location.assign(`/entregadores/novo?retorno=${encodeURIComponent(current)}`)
+  navigate(`/entregadores/novo?retorno=${encodeURIComponent(current)}`)
 }
 function userReturnUrl() {
   const candidate = new URLSearchParams(window.location.search).get('retorno')
@@ -124,7 +125,7 @@ function userReturnUrl() {
 }
 function createUser() {
   const current = `${window.location.pathname}${window.location.search}`
-  window.location.assign(`/usuarios/novo?retorno=${encodeURIComponent(current)}`)
+  navigate(`/usuarios/novo?retorno=${encodeURIComponent(current)}`)
 }
 </script>
 
