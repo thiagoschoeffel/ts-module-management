@@ -4,6 +4,12 @@ Aplicação independente que expõe `ManagementPage.vue` por Module Federation.
 O módulo contém as experiências de Produzíveis, Catálogo, Entregadores e Usuários, com
 mocks locais persistidos no navegador apenas para demonstração.
 
+## Impressão de etiquetas de congelados
+
+Entradas e reimpressões de lotes geram etiquetas Zebra em ZPL de 100 × 50 mm.
+A configuração da estação é centralizada no `ts-host`; em modo `auto`, a
+impressão pelo navegador continua disponível como fallback.
+
 As listagens usam abas com contagens para alternar estados: Produzíveis separa
 itens com e sem composição; Ofertas, Tipos de componente, Adicionais,
 Entregadores e Usuários separam registros ativos e inativos.

@@ -313,7 +313,7 @@ onBeforeUnmount(() => {
             required
             :disabled="printState === 'preparing' || printState === 'printing'"
             :error="labelCopiesError" />
-          <Alert v-if="printState === 'success'" variants="success" title="Impressão aberta" description="O arquivo foi enviado para a janela de impressão do navegador.">
+          <Alert v-if="printState === 'success'" variants="success" title="Etiquetas enviadas" description="As etiquetas foram encaminhadas para impressão.">
             <template #icon><CheckIcon /></template>
           </Alert>
           <Alert v-else-if="printState === 'error'" variants="danger" title="Não foi possível imprimir" :description="printError" role="alert">
