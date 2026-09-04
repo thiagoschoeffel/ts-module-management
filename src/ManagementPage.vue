@@ -11,6 +11,9 @@ import { getUser } from './mocks/userStore'
 import CatalogPage from './pages/CatalogPage.vue'
 import DeliveryDriverFormPage from './pages/DeliveryDriverFormPage.vue'
 import DeliveryDriverListPage from './pages/DeliveryDriverListPage.vue'
+import FrozenStockPage from './pages/FrozenStockPage.vue'
+import FrozenEntryPage from './pages/FrozenEntryPage.vue'
+import FrozenLotDetailPage from './pages/FrozenLotDetailPage.vue'
 import OfferDetailPage from './pages/OfferDetailPage.vue'
 import OfferFormPage from './pages/OfferFormPage.vue'
 import ProducibleDetailPage from './pages/ProducibleDetailPage.vue'
@@ -18,7 +21,7 @@ import ProducibleFormPage from './pages/ProducibleFormPage.vue'
 import ProducibleListPage from './pages/ProducibleListPage.vue'
 import UserFormPage from './pages/UserFormPage.vue'
 import UserListPage from './pages/UserListPage.vue'
-import type { CatalogPage as CatalogPageName, DeliveryDriverPage, ManagementSection, ProduciblePage, UserPage } from './types/management'
+import type { CatalogPage as CatalogPageName, DeliveryDriverPage, FrozenPage, ManagementSection, ProduciblePage, UserPage } from './types/management'
 import { navigate } from './utils/navigation'
 
 const props = withDefaults(defineProps<{
@@ -27,6 +30,8 @@ const props = withDefaults(defineProps<{
   producibleId?: string
   catalogPage?: CatalogPageName
   offerId?: string
+  frozenPage?: FrozenPage
+  frozenLotId?: string
   deliveryDriverPage?: DeliveryDriverPage
   deliveryDriverId?: string
   userPage?: UserPage
@@ -37,6 +42,8 @@ const props = withDefaults(defineProps<{
   producibleId: undefined,
   catalogPage: 'list',
   offerId: undefined,
+  frozenPage: 'list',
+  frozenLotId: undefined,
   deliveryDriverPage: 'list',
   deliveryDriverId: undefined,
   userPage: 'list',
@@ -50,9 +57,15 @@ const deliveryDriver = computed(() => getDeliveryDriver(props.deliveryDriverId))
 const user = computed(() => getUser(props.userId))
 const isListPage = computed(() => (props.section === 'produziveis' && props.produciblePage === 'list')
   || (props.section === 'catalogo' && props.catalogPage === 'list')
+  || (props.section === 'congelados' && props.frozenPage === 'list')
   || (props.section === 'entregadores' && props.deliveryDriverPage === 'list')
   || (props.section === 'usuarios' && props.userPage === 'list'))
 const pageTitle = computed(() => {
+  if (props.section === 'congelados') {
+    if (props.frozenPage === 'entry') return 'Registrar entrada de congelados'
+    if (props.frozenPage === 'lot') return props.frozenLotId ? `Lote ${props.frozenLotId}` : 'Detalhe do lote'
+    return page.value.title
+  }
   if (props.section === 'catalogo') {
     if (props.catalogPage === 'new') return 'Nova oferta'
     if (props.catalogPage === 'edit') return offer.value ? `Editar ${offer.value.name}` : 'Editar oferta'
@@ -76,6 +89,11 @@ const pageTitle = computed(() => {
   return page.value.title
 })
 const pageSubtitle = computed(() => {
+  if (props.section === 'congelados') {
+    if (props.frozenPage === 'entry') return 'Crie o lote e registre a movimentação de entrada da produção realizada.'
+    if (props.frozenPage === 'lot') return 'Consulte saldos, movimentações e o histórico de impressão preservado.'
+    return page.value.subtitle
+  }
   if (props.section === 'catalogo') {
     if (props.catalogPage === 'new') return 'Configure os dados comerciais, componentes, escolhas e adicionais.'
     if (props.catalogPage === 'edit') return 'Atualize a configuração comercial atual da oferta.'
@@ -111,6 +129,10 @@ function catalogReturnUrl() {
   const candidate = new URLSearchParams(window.location.search).get('retorno')
   return candidate && /^\/catalogo(?:\?.*)?$/.test(candidate) ? candidate : '/catalogo'
 }
+function frozenReturnUrl() {
+  const candidate = new URLSearchParams(window.location.search).get('retorno')
+  return candidate && /^\/congelados(?:\?.*)?$/.test(candidate) ? candidate : '/congelados'
+}
 function deliveryDriverReturnUrl() {
   const candidate = new URLSearchParams(window.location.search).get('retorno')
   return candidate && /^\/entregadores(?:\?.*)?$/.test(candidate) ? candidate : '/entregadores'
@@ -133,7 +155,7 @@ function createUser() {
   <div
     class="isolate"
     :class="isListPage ? 'md:flex md:h-[calc(100dvh-11rem)] md:min-h-0 md:flex-col' : ''">
-    <div v-if="!(props.section === 'catalogo' && props.catalogPage === 'list')" class="ts-responsive-row gap-4">
+    <div v-if="!((props.section === 'catalogo' && props.catalogPage === 'list') || (props.section === 'congelados' && props.frozenPage === 'list'))" class="ts-responsive-row gap-4">
       <PageHeader :title="pageTitle" :subtitle="pageSubtitle">
         <template #icon><component :is="page.icon" :size="32" :stroke-width="1.75" /></template>
       </PageHeader>
@@ -154,6 +176,13 @@ function createUser() {
         class="hidden items-center gap-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-800 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 sm:inline-flex">
         <ChevronLeftIcon class="size-4" aria-hidden="true" />
         {{ props.catalogPage === 'detail' ? 'Voltar para o Catálogo' : props.offerId ? 'Voltar para a oferta' : 'Voltar para o Catálogo' }}
+      </a>
+      <a
+        v-if="props.section === 'congelados' && props.frozenPage !== 'list'"
+        :href="frozenReturnUrl()"
+        class="desktop-only-flex items-center gap-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-800 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40">
+        <ChevronLeftIcon class="size-4" aria-hidden="true" />
+        Voltar para congelados
       </a>
       <a
         v-if="props.section === 'entregadores' && props.deliveryDriverPage !== 'list'"
@@ -179,7 +208,7 @@ function createUser() {
 
     <main
       :class="[
-        props.section === 'catalogo' && props.catalogPage === 'list' ? '' : 'mt-6',
+        (props.section === 'catalogo' && props.catalogPage === 'list') || (props.section === 'congelados' && props.frozenPage === 'list') ? '' : 'mt-6',
         isListPage ? 'md:min-h-0 md:flex-1' : ''
       ]">
       <template v-if="props.section === 'produziveis'">
@@ -198,6 +227,11 @@ function createUser() {
       <template v-else-if="props.section === 'entregadores'">
         <DeliveryDriverListPage v-if="props.deliveryDriverPage === 'list'" />
         <DeliveryDriverFormPage v-else :mode="props.deliveryDriverPage === 'edit' ? 'edit' : 'create'" :driver-id="props.deliveryDriverId" />
+      </template>
+      <template v-else-if="props.section === 'congelados'">
+        <FrozenStockPage v-if="props.frozenPage === 'list'" />
+        <FrozenEntryPage v-else-if="props.frozenPage === 'entry'" />
+        <FrozenLotDetailPage v-else :frozen-lot-id="props.frozenLotId" />
       </template>
       <template v-else-if="props.section === 'usuarios'">
         <UserListPage v-if="props.userPage === 'list'" />
