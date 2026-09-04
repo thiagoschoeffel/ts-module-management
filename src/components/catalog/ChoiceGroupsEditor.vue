@@ -147,7 +147,7 @@ function invalid(group: OfferChoiceGroup) {
 <template>
   <div class="space-y-4">
     <Card v-for="(group, groupIndex) in groups" :key="group.id">
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div class="ts-responsive-row-start gap-4">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2"><p class="font-semibold text-slate-800">{{ group.name }}</p><Badge variant="neutral">{{ group.options.length }} opç{{ group.options.length === 1 ? 'ão' : 'ões' }}</Badge><Badge v-if="props.showValidation && invalid(group)" variant="danger" size="small">Revisar</Badge></div>
           <p class="mt-1 text-sm text-slate-500">{{ selectionRule(group) }}</p>
@@ -199,7 +199,7 @@ function invalid(group: OfferChoiceGroup) {
         <section class="space-y-3" aria-labelledby="choice-options-title">
           <div><h3 id="choice-options-title" class="text-sm font-semibold text-slate-800">Opções disponíveis</h3><p class="mt-1 text-sm text-slate-500">Cada opção aponta para um tipo de componente e pode acrescentar um valor ao preço base.</p></div>
           <Card v-for="(option, optionIndex) in draft.options" :key="option.id">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="ts-responsive-row gap-3">
               <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2"><p class="font-medium text-slate-800">{{ typeName(option.componentTypeId) }}</p><Badge v-if="showDrawerValidation && optionInvalid(option, optionIndex)" variant="danger" size="small">Revisar</Badge></div>
                 <p class="mt-1 text-sm" :class="option.surcharge ? 'font-medium text-emerald-600' : 'text-slate-400'">{{ option.surcharge ? `Acréscimo de ${formatCurrency(option.surcharge)}` : 'Sem acréscimo' }}</p>

@@ -75,7 +75,7 @@ function invalid(component: OfferComponent) {
 <template>
   <div class="space-y-3">
     <Card v-for="(component, index) in components" :key="component.id">
-      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div class="ts-responsive-row gap-4">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <p class="font-semibold text-slate-800">{{ typeName(component.componentTypeId) }}</p>

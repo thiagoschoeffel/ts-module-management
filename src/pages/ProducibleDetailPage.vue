@@ -51,7 +51,7 @@ onBeforeUnmount(() => { if (loadingTimeout) clearTimeout(loadingTimeout) })
   </EmptyState>
 
   <section v-else aria-label="Detalhe do item produzível">
-    <div class="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div class="ts-responsive-row mb-5 gap-4">
       <div class="flex items-center gap-2"><Badge size="medium" :variant="currentComposition ? 'success' : 'neutral'">{{ currentComposition ? 'Com composição' : 'Sem composição' }}</Badge><span class="text-sm text-slate-500">Item operacional</span></div>
       <div class="flex flex-col gap-3 sm:items-end">
         <a :href="returnUrl()" class="order-2 inline-flex items-center gap-1 self-start text-sm font-medium text-slate-400 transition-colors hover:text-slate-800 sm:hidden"><ChevronLeftIcon class="size-4" aria-hidden="true" />Voltar para produzíveis</a>

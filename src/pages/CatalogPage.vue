@@ -66,7 +66,7 @@ onBeforeUnmount(() => window.removeEventListener('popstate', restore))
     @update:model-value="updateSection">
     <template #content="{ tab }">
       <div class="pt-4 md:flex md:h-full md:min-h-0 md:flex-col">
-        <div class="flex shrink-0 flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="ts-responsive-row shrink-0 gap-4">
           <header class="flex w-full min-w-0 items-start gap-3 text-slate-800">
             <BoxesIcon class="size-8 shrink-0" :stroke-width="1.75" aria-hidden="true" />
             <div class="min-w-0 flex-1 overflow-hidden">

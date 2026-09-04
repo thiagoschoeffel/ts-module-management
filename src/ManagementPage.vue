@@ -133,7 +133,7 @@ function createUser() {
   <div
     class="isolate"
     :class="isListPage ? 'md:flex md:h-[calc(100dvh-11rem)] md:min-h-0 md:flex-col' : ''">
-    <div v-if="!(props.section === 'catalogo' && props.catalogPage === 'list')" class="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div v-if="!(props.section === 'catalogo' && props.catalogPage === 'list')" class="ts-responsive-row gap-4">
       <PageHeader :title="pageTitle" :subtitle="pageSubtitle">
         <template #icon><component :is="page.icon" :size="32" :stroke-width="1.75" /></template>
       </PageHeader>
