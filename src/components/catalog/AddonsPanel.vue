@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
-  Badge, BadgeDollarSignIcon, Button, Card, Checkbox, DataTable, Drawer, EmptyState,
+  Alert, Badge, BadgeDollarSignIcon, Button, Card, Checkbox, DataTable, Drawer, EmptyState,
   Input, Pagination, SearchIcon, Select, Tabs, TriangleAlertIcon, type DataTableColumn,
   type DataTableRow, type DataTableSortDirection, type SelectOption, type TabItem
 } from '@thiagoschoeffel/ts-components'
@@ -20,6 +20,7 @@ const initialMockScenario = initialParams.get('mock')
 const mockScenario: AddonListMockScenario = validMockScenarios.has(initialMockScenario as AddonListMockScenario)
   ? initialMockScenario as AddonListMockScenario
   : 'padrao'
+const saveError = ref('')
 const initialPage = Number(initialParams.get('pagina'))
 const initialSortKey = initialParams.get('ordenar')
 const validSortKeys = new Set<AddonSortKey>(['name', 'price', 'producibleItemId', 'operationalQuantity', 'active'])
@@ -184,19 +185,22 @@ function openForm(item?: CatalogAddon) {
   operationalUnit.value = item?.operationalUnit ?? 'g'
   active.value = item?.active ?? true
   showValidation.value = false
+  saveError.value = ''
   drawerOpen.value = true
 }
-function save() {
+async function save() {
   showValidation.value = true
   if (nameError.value || priceError.value || quantityError.value) return
-  saveCatalogAddon({
-    id: editingId.value ?? nextCatalogAddonId(), name: name.value.trim(), price: Number(price.value),
-    producibleItemId: producibleItemId.value === 'none' ? undefined : producibleItemId.value,
-    operationalQuantity: operationalQuantity.value == null ? undefined : Number(operationalQuantity.value),
-    operationalUnit: operationalQuantity.value == null ? undefined : operationalUnit.value, active: active.value
-  })
-  version.value++
-  drawerOpen.value = false
+  try {
+    await saveCatalogAddon({
+      id: editingId.value ?? nextCatalogAddonId(), name: name.value.trim(), price: Number(price.value),
+      producibleItemId: producibleItemId.value === 'none' ? undefined : producibleItemId.value,
+      operationalQuantity: operationalQuantity.value == null ? undefined : Number(operationalQuantity.value),
+      operationalUnit: operationalQuantity.value == null ? undefined : operationalUnit.value, active: active.value
+    })
+    version.value++; drawerOpen.value = false
+  }
+  catch (error) { saveError.value = error instanceof Error ? error.message : 'Não foi possível salvar o adicional.' }
 }
 
 defineExpose({ openCreate: () => openForm() })
@@ -264,6 +268,7 @@ onBeforeUnmount(() => {
     </Card>
 
     <Drawer v-model:open="drawerOpen" size="large" :title="editingId ? 'Editar adicional' : 'Novo adicional'" description="Configure o que o cliente pode comprar além da oferta e, quando necessário, seu vínculo operacional.">
+      <Alert v-if="saveError" class="mb-4" variants="danger" :description="saveError" />
       <div class="space-y-6">
         <section class="space-y-4" aria-labelledby="addon-commercial-title">
           <div><h3 id="addon-commercial-title" class="text-sm font-semibold text-slate-800">Dados comerciais</h3><p class="mt-1 text-sm text-slate-500">Informações exibidas durante a venda do adicional.</p></div>

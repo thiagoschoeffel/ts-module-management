@@ -20,6 +20,7 @@ const allowedAddonIds = ref<string[]>([])
 const showValidation = ref(false)
 const saving = ref(false)
 const savedMessage = ref('')
+const saveError = ref('')
 const cancelConfirmationOpen = ref(false)
 const initialSnapshot = ref('')
 let navigationTimeout: ReturnType<typeof setTimeout> | undefined
@@ -37,13 +38,21 @@ function returnUrl() { const candidate = new URLSearchParams(window.location.sea
 function detailUrl(id: string) { return `/catalogo/${id}?retorno=${encodeURIComponent(returnUrl())}` }
 function leave() { navigate(props.mode === 'edit' && props.offerId ? detailUrl(props.offerId) : returnUrl()) }
 function cancel() { if (isDirty.value) cancelConfirmationOpen.value = true; else leave() }
-function save() {
+async function save() {
   showValidation.value = true
   if (nameError.value || priceError.value || componentsInvalid.value || groupsInvalid.value || addonsInvalid.value || (props.mode === 'edit' && !existing.value)) return
   saving.value = true
   const id = props.mode === 'edit' && props.offerId ? props.offerId : nextOfferId()
   const offer: Offer = { id, name: name.value.trim(), description: description.value.trim() || undefined, basePrice: Number(basePrice.value), active: active.value, requiresMenuChoice: requiresMenuChoice.value, components: structuredClone(components.value), choiceGroups: structuredClone(choiceGroups.value), allowedAddonIds: [...new Set(allowedAddonIds.value)] }
-  navigationTimeout = setTimeout(() => { saveOffer(offer); saving.value = false; initialSnapshot.value = snapshot.value; savedMessage.value = props.mode === 'edit' ? 'Alterações da oferta salvas.' : 'Oferta criada com sucesso.'; navigationTimeout = setTimeout(() => navigate(detailUrl(id)), 700) }, 450)
+  saveError.value = ''
+  try {
+    const saved = await saveOffer(offer)
+    initialSnapshot.value = snapshot.value
+    savedMessage.value = props.mode === 'edit' ? 'Alterações da oferta salvas.' : 'Oferta criada com sucesso.'
+    navigationTimeout = setTimeout(() => navigate(detailUrl(saved.id)), 700)
+  }
+  catch (error) { saveError.value = error instanceof Error ? error.message : 'Não foi possível salvar a oferta.' }
+  finally { saving.value = false }
 }
 function warn(event: BeforeUnloadEvent) { if (!isDirty.value || savedMessage.value) return; event.preventDefault(); event.returnValue = '' }
 onMounted(() => {
@@ -58,6 +67,7 @@ watch(snapshot, () => { if (savedMessage.value) savedMessage.value = '' })
 <template>
   <form class="space-y-4 pb-20 lg:pb-0" @submit.prevent="save">
     <Alert v-if="savedMessage" variants="success" :description="savedMessage"><template #icon><CheckIcon /></template></Alert>
+    <Alert v-if="saveError" variants="danger" title="Não foi possível salvar a oferta" :description="saveError"><template #icon><TriangleAlertIcon /></template></Alert>
     <Alert v-if="props.mode === 'edit' && !existing" variants="danger" title="Oferta não encontrada" description="Volte para o Catálogo e selecione uma oferta válida."><template #icon><TriangleAlertIcon /></template></Alert>
     <Alert v-if="showValidation && (componentsInvalid || groupsInvalid || addonsInvalid)" variants="danger" title="Revise a configuração comercial" description="Corrija os campos indicados em componentes, grupos ou adicionais antes de salvar."><template #icon><TriangleAlertIcon /></template></Alert>
     <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">

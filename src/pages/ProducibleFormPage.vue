@@ -17,6 +17,7 @@ const components = ref<CompositionComponent[]>([])
 const showValidation = ref(false)
 const saving = ref(false)
 const savedMessage = ref('')
+const saveError = ref('')
 const cancelConfirmationOpen = ref(false)
 const initialSnapshot = ref('')
 let navigationTimeout: ReturnType<typeof setTimeout> | undefined
@@ -37,20 +38,22 @@ function leavePage() {
   navigate(props.producibleId && props.mode !== 'create' ? detailUrl(props.producibleId) : returnUrl())
 }
 function cancel() { if (isDirty.value) cancelConfirmationOpen.value = true; else leavePage() }
-function save() {
+async function save() {
   showValidation.value = true
   if ((props.mode !== 'composition' && nameError.value) || componentErrors.value || (props.mode !== 'create' && !item.value)) return
   saving.value = true
-  navigationTimeout = setTimeout(() => {
+  saveError.value = ''
+  try {
     let savedId = props.producibleId
-    if (props.mode === 'create') savedId = createProducible(name.value.trim(), components.value).id
-    else if (props.mode === 'edit' && savedId) updateProducibleName(savedId, name.value.trim())
-    else if (props.mode === 'composition' && savedId) addCompositionVersion(savedId, components.value)
-    saving.value = false
+    if (props.mode === 'create') savedId = (await createProducible(name.value.trim(), components.value)).id
+    else if (props.mode === 'edit' && savedId) await updateProducibleName(savedId, name.value.trim())
+    else if (props.mode === 'composition' && savedId) await addCompositionVersion(savedId, components.value)
     initialSnapshot.value = snapshot.value
     savedMessage.value = props.mode === 'create' ? 'Item produzível criado com sucesso.' : props.mode === 'edit' ? 'Dados básicos atualizados.' : 'Nova versão de composição criada.'
     if (savedId) navigationTimeout = setTimeout(() => navigate(detailUrl(savedId)), 700)
-  }, 450)
+  }
+  catch (error) { saveError.value = error instanceof Error ? error.message : 'Não foi possível salvar o item produzível.' }
+  finally { saving.value = false }
 }
 function warnBeforeUnload(event: BeforeUnloadEvent) {
   if (!isDirty.value || savedMessage.value) return
@@ -72,6 +75,7 @@ watch(snapshot, () => { if (savedMessage.value) savedMessage.value = '' })
 <template>
   <form class="space-y-4 pb-20 lg:pb-0" @submit.prevent="save">
     <Alert v-if="savedMessage" variants="success" :description="savedMessage"><template #icon><CheckIcon /></template></Alert>
+    <Alert v-if="saveError" variants="danger" title="Não foi possível salvar o item" :description="saveError"><template #icon><TriangleAlertIcon /></template></Alert>
     <Alert v-if="props.mode !== 'create' && !item" variants="danger" title="Item produzível não encontrado" description="Volte para a lista e selecione um item válido."><template #icon><TriangleAlertIcon /></template></Alert>
     <Alert v-if="props.mode === 'composition' && item" variants="info" title="Uma nova versão será criada" description="A composição atual será preservada no histórico e não sofrerá alterações."><template #icon><InfoIcon /></template></Alert>
 
