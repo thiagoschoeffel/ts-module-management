@@ -4,10 +4,19 @@ export type FrozenStockTab = 'estoque' | 'produtos' | 'vencimentos'
 export type FrozenLotStatus = 'disponivel' | 'proximo-vencimento' | 'vencido' | 'esgotado' | 'configuracao-inativa'
 export type FrozenMovementType = 'entrada-producao' | 'saida-pedido' | 'estorno-pedido' | 'ajuste-manual' | 'descarte-vencimento'
 export type FrozenLabelPrintStatus = 'success' | 'error'
+export type AuthenticatedApiRequest = (path: string, init?: RequestInit) => Promise<Response>
+
+export interface FrozenProducible {
+  id: string
+  name: string
+  active: boolean
+}
 
 export interface FrozenConfiguration {
   id: string
+  offerId: string
   producibleItemId: string
+  producibleName: string
   presentation: string
   quantityPerUnit: number
   unit: MeasurementUnit
@@ -81,4 +90,12 @@ export interface FrozenExpirationSummary {
   configuration: FrozenConfiguration
   producibleName: string
   status: FrozenLotStatus
+}
+
+export interface FrozenStockManagementSnapshot {
+  frozenOfferId?: string
+  producibles: FrozenProducible[]
+  configurations: FrozenConfiguration[]
+  stock: FrozenStockSummary[]
+  expirations: FrozenExpirationSummary[]
 }

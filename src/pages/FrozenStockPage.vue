@@ -6,30 +6,26 @@ import {
   type DataTableColumn, type DataTableRow, type DataTableSortDirection, type SelectOption,
   type TabItem
 } from '@thiagoschoeffel/ts-components'
-import {
-  getFrozenExpirationSummaries,
-  getFrozenConfigurations,
-  getFrozenStockSummaries,
-  saveFrozenConfiguration
-} from '../mocks/frozenStock'
 import { formatCurrency } from '../mocks/catalogStore'
-import { getCurrentComposition, getProducible, getProducibles } from '../mocks/producibleStore'
+import { createFrozenConfiguration, loadFrozenStock, updateFrozenConfiguration } from '../services/frozenStockApi'
 import type {
+  AuthenticatedApiRequest,
   FrozenConfiguration,
   FrozenExpirationSummary,
+  FrozenProducible,
   FrozenLotStatus,
   FrozenStockSummary,
   FrozenStockTab
 } from '../types/frozenStock'
 import { navigate } from '../utils/navigation'
 
-type FrozenMockScenario = 'padrao' | 'sem-congelados' | 'sem-resultados' | 'erro' | 'salvamento-erro'
 type FrozenConfigurationRow = FrozenConfiguration & { producibleName: string }
 type FrozenSortKey = 'producibleName' | 'presentation' | 'unitPrice' | 'availableQuantity' | 'lotCount'
   | 'nextExpiration' | 'status' | 'active' | 'lotId'
   | 'expiresOn' | 'physicalQuantity'
 
 const params = new URLSearchParams(window.location.search)
+const props = defineProps<{ apiRequest?: AuthenticatedApiRequest }>()
 const validTabs = new Set<FrozenStockTab>(['estoque', 'produtos', 'vencimentos'])
 const requestedTab = params.get('tab')
 const activeTab = ref<FrozenStockTab>(validTabs.has(requestedTab as FrozenStockTab) ? requestedTab as FrozenStockTab : 'estoque')
@@ -50,12 +46,7 @@ const sortKey = ref<FrozenSortKey>(
     : defaultSortByTab[activeTab.value]
 )
 const sortDirection = ref<DataTableSortDirection>(params.get('direcao') === 'desc' ? 'desc' : 'asc')
-const validScenarios = new Set<FrozenMockScenario>(['padrao', 'sem-congelados', 'sem-resultados', 'erro', 'salvamento-erro'])
-const requestedScenario = params.get('mock')
-const mockScenario: FrozenMockScenario = validScenarios.has(requestedScenario as FrozenMockScenario)
-  ? requestedScenario as FrozenMockScenario
-  : 'padrao'
-const search = ref(params.get('busca') ?? (mockScenario === 'sem-resultados' ? 'Produto inexistente' : ''))
+const search = ref(params.get('busca') ?? '')
 const debouncedSearch = ref(search.value)
 const isLoading = ref(true)
 const hasLoadingError = ref(false)
@@ -72,35 +63,24 @@ const configurationSaveError = ref('')
 const createdLotId = params.get('entrada')
 const configurationSavedMessage = ref(createdLotId ? `Entrada registrada no lote ${createdLotId}.` : '')
 let debounceTimeout: ReturnType<typeof setTimeout> | undefined
-let loadingTimeout: ReturnType<typeof setTimeout> | undefined
-let configurationTimeout: ReturnType<typeof setTimeout> | undefined
-let simulatedFailureShown = false
-let simulatedSaveFailureShown = false
 let restoringHistory = false
 
-const allStock = ref(mockScenario === 'sem-congelados' ? [] : getFrozenStockSummaries())
-const configurationRows = ref<FrozenConfigurationRow[]>(mockScenario === 'sem-congelados'
-  ? []
-  : getFrozenConfigurations().map<FrozenConfigurationRow>(configuration => ({
-      ...configuration,
-      producibleName: getProducible(configuration.producibleItemId)?.name ?? 'Produzível não encontrado'
-    })))
-const allExpirations = ref(mockScenario === 'sem-congelados' ? [] : getFrozenExpirationSummaries())
+const allStock = ref<FrozenStockSummary[]>([])
+const configurationRows = ref<FrozenConfigurationRow[]>([])
+const allExpirations = ref<FrozenExpirationSummary[]>([])
+const producibles = ref<FrozenProducible[]>([])
+const frozenOfferId = ref<string>()
+const editingConfiguration = computed(() => configurationRows.value.find(item => item.id === editingConfigurationId.value))
 
-const producibles = computed(() => getProducibles())
-const producibleOptions = computed<SelectOption[]>(() => producibles.value.map(item => ({
-  value: item.id,
-  label: `${item.name}${getCurrentComposition(item) ? '' : ' · sem composição'}`
-})))
+const producibleOptions = computed<SelectOption[]>(() => producibles.value
+  .filter(item => item.active || item.id === editingConfiguration.value?.producibleItemId)
+  .map(item => ({ value: item.id, label: item.name })))
 const unitOptions: SelectOption[] = [
   { value: 'g', label: 'gramas (g)' },
-  { value: 'kg', label: 'quilogramas (kg)' },
   { value: 'ml', label: 'mililitros (ml)' },
-  { value: 'l', label: 'litros (l)' },
   { value: 'un', label: 'unidade (un)' }
 ]
-const selectedProducible = computed(() => getProducible(draftProducibleItemId.value))
-const editingConfiguration = computed(() => configurationRows.value.find(item => item.id === editingConfigurationId.value))
+const selectedProducible = computed(() => producibles.value.find(item => item.id === draftProducibleItemId.value))
 const isEditingConfiguration = computed(() => Boolean(editingConfigurationId.value))
 const presentation = computed(() => `${Number(draftQuantityPerUnit.value) || 0} ${draftUnit.value}`)
 const producibleError = computed(() => showConfigurationValidation.value && !draftProducibleItemId.value
@@ -166,15 +146,18 @@ watch(search, value => {
   debounceTimeout = setTimeout(() => { debouncedSearch.value = value }, 250)
 })
 
-function setLoading() {
-  if (loadingTimeout) clearTimeout(loadingTimeout)
+async function setLoading() {
   isLoading.value = true
   hasLoadingError.value = false
-  loadingTimeout = setTimeout(() => {
+  try {
+    await refreshFrozenData()
+  }
+  catch {
+    hasLoadingError.value = true
+  }
+  finally {
     isLoading.value = false
-    hasLoadingError.value = mockScenario === 'erro' && !simulatedFailureShown
-    simulatedFailureShown = simulatedFailureShown || hasLoadingError.value
-  }, 300)
+  }
 }
 function persistState() {
   if (restoringHistory) return
@@ -210,13 +193,11 @@ function updateTab(value: string) {
 function handlePopState() {
   restoringHistory = true
   restoreFromUrl()
-  setLoading()
   queueMicrotask(() => { restoringHistory = false })
 }
 
 watch([activeTab, debouncedSearch, sortKey, sortDirection], () => {
   persistState()
-  setLoading()
 })
 
 const normalizedSearch = computed(() => debouncedSearch.value.trim().toLocaleLowerCase('pt-BR'))
@@ -341,14 +322,14 @@ function updateSort(state: { key?: string, direction?: DataTableSortDirection })
   sortDirection.value = state.direction ?? 'asc'
 }
 function clearSearch() { search.value = ''; debouncedSearch.value = '' }
-function refreshFrozenData() {
-  if (mockScenario === 'sem-congelados') return
-  configurationRows.value = getFrozenConfigurations().map<FrozenConfigurationRow>(configuration => ({
-    ...configuration,
-    producibleName: getProducible(configuration.producibleItemId)?.name ?? 'Produzível não encontrado'
-  }))
-  allStock.value = getFrozenStockSummaries()
-  allExpirations.value = getFrozenExpirationSummaries()
+async function refreshFrozenData() {
+  if (!props.apiRequest) throw new Error('A sessão autenticada da API não está disponível.')
+  const snapshot = await loadFrozenStock(props.apiRequest)
+  frozenOfferId.value = snapshot.frozenOfferId
+  producibles.value = snapshot.producibles
+  configurationRows.value = snapshot.configurations
+  allStock.value = snapshot.stock
+  allExpirations.value = snapshot.expirations
 }
 function openConfigurationDrawer(configuration?: FrozenConfigurationRow) {
   editingConfigurationId.value = configuration?.id
@@ -370,46 +351,51 @@ function openLot(lotId: string) {
   const current = `${window.location.pathname}${window.location.search}`
   navigate(`/congelados/lotes/${encodeURIComponent(lotId)}?retorno=${encodeURIComponent(current)}`)
 }
-function saveConfiguration() {
+async function saveConfiguration() {
   showConfigurationValidation.value = true
   configurationSaveError.value = ''
   if (producibleError.value || quantityError.value || priceError.value || duplicatedConfiguration.value) return
   const producible = selectedProducible.value
   if (!producible) return
   const current = editingConfiguration.value
-  const configuration: FrozenConfiguration = {
-    id: current?.id ?? `cong-demo-${Date.now()}`,
-    producibleItemId: producible.id,
-    presentation: presentation.value,
-    quantityPerUnit: Number(draftQuantityPerUnit.value),
-    unit: draftUnit.value,
-    unitPrice: Number(draftUnitPrice.value),
-    active: draftActive.value
+  if (!props.apiRequest) {
+    configurationSaveError.value = 'A sessão autenticada da API não está disponível.'
+    return
+  }
+  if (!current && !frozenOfferId.value) {
+    configurationSaveError.value = 'Cadastre e ative a oferta genérica de Congelados antes de habilitar uma apresentação.'
+    return
   }
   savingConfiguration.value = true
-  if (configurationTimeout) clearTimeout(configurationTimeout)
-  configurationTimeout = setTimeout(() => {
-    if (mockScenario === 'salvamento-erro' && !simulatedSaveFailureShown) {
-      simulatedSaveFailureShown = true
-      savingConfiguration.value = false
-      configurationSaveError.value = 'Não foi possível salvar a configuração. Nenhum dado foi alterado.'
-      return
-    }
-    try {
-      saveFrozenConfiguration(configuration)
-      refreshFrozenData()
+  try {
+      if (current) {
+        await updateFrozenConfiguration(props.apiRequest, current.id, {
+          unitPrice: Number(draftUnitPrice.value), active: draftActive.value
+        })
+      }
+      else {
+        await createFrozenConfiguration(props.apiRequest, {
+          offerId: frozenOfferId.value!,
+          producibleItemId: producible.id,
+          presentation: presentation.value,
+          quantityPerUnit: Number(draftQuantityPerUnit.value),
+          unit: draftUnit.value,
+          unitPrice: Number(draftUnitPrice.value),
+          active: true
+        })
+      }
+      await refreshFrozenData()
       configurationDrawerOpen.value = false
       configurationSavedMessage.value = current
-        ? `${producible.name} · ${presentation.value} foi atualizado. ${configuration.active ? 'A configuração está ativa.' : 'Novas entradas e vendas foram desabilitadas; o histórico foi preservado.'}`
+        ? `${producible.name} · ${presentation.value} foi atualizado. ${draftActive.value ? 'A configuração está ativa.' : 'Novas entradas e vendas foram desabilitadas; o histórico foi preservado.'}`
         : `${producible.name} · ${presentation.value} foi habilitado para estoque congelado.`
       search.value = ''
       debouncedSearch.value = ''
-    }
-    catch (error) {
+  }
+  catch (error) {
       configurationSaveError.value = error instanceof Error ? error.message : 'Não foi possível salvar a configuração.'
-    }
-    finally { savingConfiguration.value = false }
-  }, 400)
+  }
+  finally { savingConfiguration.value = false }
 }
 
 onMounted(() => {
@@ -419,8 +405,6 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   if (debounceTimeout) clearTimeout(debounceTimeout)
-  if (loadingTimeout) clearTimeout(loadingTimeout)
-  if (configurationTimeout) clearTimeout(configurationTimeout)
   window.removeEventListener('popstate', handlePopState)
 })
 </script>
@@ -626,7 +610,7 @@ onBeforeUnmount(() => {
         <Card v-if="selectedProducible" class="[&>div]:p-4">
           <dl class="grid gap-3 text-sm sm:grid-cols-2">
             <div><dt class="text-slate-400">Preparação</dt><dd class="mt-1 font-medium text-slate-800">{{ selectedProducible.name }}</dd></div>
-            <div><dt class="text-slate-400">Composição atual</dt><dd class="mt-1 font-medium text-slate-800">{{ getCurrentComposition(selectedProducible) ? `v${getCurrentComposition(selectedProducible)?.version}` : 'Não cadastrada' }}</dd></div>
+            <div><dt class="text-slate-400">Origem</dt><dd class="mt-1 font-medium text-slate-800">Item produzível autoritativo</dd></div>
           </dl>
         </Card>
 
@@ -639,11 +623,13 @@ onBeforeUnmount(() => {
             min="0.01"
             step="0.01"
             required
+            :disabled="isEditingConfiguration"
             :error="quantityError" />
           <Select
             v-model="draftUnit"
             label="Unidade de medida"
             required
+            :disabled="isEditingConfiguration"
             :options="unitOptions" />
         </div>
 

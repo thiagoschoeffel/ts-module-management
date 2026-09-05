@@ -22,6 +22,7 @@ import ProducibleListPage from './pages/ProducibleListPage.vue'
 import UserFormPage from './pages/UserFormPage.vue'
 import UserListPage from './pages/UserListPage.vue'
 import type { CatalogPage as CatalogPageName, DeliveryDriverPage, FrozenPage, ManagementSection, ProduciblePage, UserPage } from './types/management'
+import type { AuthenticatedApiRequest } from './types/frozenStock'
 import { navigate } from './utils/navigation'
 
 const props = withDefaults(defineProps<{
@@ -32,6 +33,7 @@ const props = withDefaults(defineProps<{
   offerId?: string
   frozenPage?: FrozenPage
   frozenLotId?: string
+  apiRequest?: AuthenticatedApiRequest
   deliveryDriverPage?: DeliveryDriverPage
   deliveryDriverId?: string
   userPage?: UserPage
@@ -44,6 +46,7 @@ const props = withDefaults(defineProps<{
   offerId: undefined,
   frozenPage: 'list',
   frozenLotId: undefined,
+  apiRequest: undefined,
   deliveryDriverPage: 'list',
   deliveryDriverId: undefined,
   userPage: 'list',
@@ -229,9 +232,9 @@ function createUser() {
         <DeliveryDriverFormPage v-else :mode="props.deliveryDriverPage === 'edit' ? 'edit' : 'create'" :driver-id="props.deliveryDriverId" />
       </template>
       <template v-else-if="props.section === 'congelados'">
-        <FrozenStockPage v-if="props.frozenPage === 'list'" />
-        <FrozenEntryPage v-else-if="props.frozenPage === 'entry'" />
-        <FrozenLotDetailPage v-else :frozen-lot-id="props.frozenLotId" />
+        <FrozenStockPage v-if="props.frozenPage === 'list'" :api-request="props.apiRequest" />
+        <FrozenEntryPage v-else-if="props.frozenPage === 'entry'" :api-request="props.apiRequest" />
+        <FrozenLotDetailPage v-else :frozen-lot-id="props.frozenLotId" :api-request="props.apiRequest" />
       </template>
       <template v-else-if="props.section === 'usuarios'">
         <UserListPage v-if="props.userPage === 'list'" />

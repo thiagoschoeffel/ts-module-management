@@ -1,27 +1,24 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { getLocalTimeZone, today } from '@internationalized/date'
 import {
   Alert, AlertDialog, Badge, Button, Card, CheckIcon, DatePicker, Dialog, EmptyState,
   Input, PrinterIcon, PrintPreview, Select, SnowflakeIcon, TriangleAlertIcon, type DateValue, type SelectOption
 } from '@thiagoschoeffel/ts-components'
-import { calculateFrozenExpiration } from '../domain/frozenDates'
 import { formatCurrency } from '../mocks/catalogStore'
-import { createFrozenProductionEntry, getFrozenConfigurations, recordFrozenLabelPrint } from '../mocks/frozenStock'
-import { getProducible } from '../mocks/producibleStore'
+import { loadFrozenStock, previewFrozenExpiration, registerFrozenProduction } from '../services/frozenStockApi'
 import { navigate } from '../utils/navigation'
 import { printFrozenProductLabels, type LabelPrintState } from '../services/frozenLabelPrinting'
-import type { FrozenConfiguration, FrozenLot, FrozenProductLabelSnapshot } from '../types/frozenStock'
+import type { AuthenticatedApiRequest, FrozenConfiguration, FrozenLot, FrozenProductLabelSnapshot } from '../types/frozenStock'
 
 type ConfigurationOption = FrozenConfiguration & { producibleName: string }
 
 const params = new URLSearchParams(window.location.search)
-const configurations = getFrozenConfigurations()
-  .filter(configuration => configuration.active)
-  .map<ConfigurationOption>(configuration => ({
-    ...configuration,
-    producibleName: getProducible(configuration.producibleItemId)?.name ?? 'Produzível não encontrado'
-  }))
+const props = defineProps<{ apiRequest?: AuthenticatedApiRequest }>()
+const configurations = ref<ConfigurationOption[]>([])
+const loading = ref(true)
+const loadingFailed = ref(false)
+const expirationOn = ref('')
 const configurationId = ref('')
 const manufacturedOn = shallowRef<DateValue>(today(getLocalTimeZone()))
 const producedQuantity = ref<number>(1)
@@ -34,22 +31,18 @@ const savedLot = ref<FrozenLot>()
 const labelCopies = ref<number>(1)
 const printState = ref<LabelPrintState>('idle')
 const printError = ref('')
+const pendingEntryKey = ref('')
 const initialSnapshot = JSON.stringify({
   configurationId: configurationId.value,
   manufacturedOn: manufacturedOn.value.toString(),
   producedQuantity: producedQuantity.value
 })
-let navigationTimeout: ReturnType<typeof setTimeout> | undefined
-let simulatedFailureShown = false
 
-const configurationOptions = computed<SelectOption[]>(() => configurations.map(configuration => ({
+const configurationOptions = computed<SelectOption[]>(() => configurations.value.map(configuration => ({
   value: configuration.id,
   label: `${configuration.producibleName} · ${configuration.presentation} · ${formatCurrency(configuration.unitPrice)}`
 })))
-const selectedConfiguration = computed(() => configurations.find(configuration => configuration.id === configurationId.value))
-const expirationOn = computed(() => manufacturedOn.value
-  ? calculateFrozenExpiration(manufacturedOn.value.toString())
-  : '')
+const selectedConfiguration = computed(() => configurations.value.find(configuration => configuration.id === configurationId.value))
 const configurationError = computed(() => showValidation.value && !selectedConfiguration.value
   ? 'Selecione uma configuração ativa.'
   : undefined)
@@ -96,36 +89,49 @@ function cancel() {
   else leave()
 }
 function goToConfigurations() { navigate('/congelados?tab=produtos') }
-function save() {
+async function load() {
+  loading.value = true
+  loadingFailed.value = false
+  try {
+    if (!props.apiRequest) throw new Error('Sessão autenticada indisponível.')
+    const snapshot = await loadFrozenStock(props.apiRequest)
+    configurations.value = snapshot.configurations.filter(configuration =>
+      configuration.active
+      && snapshot.producibles.some(item => item.id === configuration.producibleItemId && item.active))
+    expirationOn.value = await previewFrozenExpiration(props.apiRequest, manufacturedOn.value.toString())
+  }
+  catch {
+    loadingFailed.value = true
+  }
+  finally { loading.value = false }
+}
+async function save() {
   showValidation.value = true
   saveError.value = ''
   if (configurationError.value || manufacturedOnError.value || quantityError.value || !manufacturedOn.value) return
+  if (!props.apiRequest) {
+    saveError.value = 'A sessão autenticada da API não está disponível.'
+    return
+  }
   saving.value = true
-  navigationTimeout = setTimeout(() => {
-    if (params.get('mock') === 'erro' && !simulatedFailureShown) {
-      simulatedFailureShown = true
-      saving.value = false
-      saveError.value = 'Não foi possível registrar a entrada. Nenhum lote ou movimento foi criado.'
-      return
-    }
-    try {
-      const result = createFrozenProductionEntry({
+  try {
+      pendingEntryKey.value ||= crypto.randomUUID()
+      const result = await registerFrozenProduction(props.apiRequest, {
         frozenConfigurationId: configurationId.value,
         manufacturedOn: manufacturedOn.value.toString(),
         producedQuantity: Number(producedQuantity.value),
-        responsibleName: 'Usuário atual'
+        idempotencyKey: pendingEntryKey.value
       })
       savedLot.value = result.lot
       labelCopies.value = result.lot.producedQuantity
       printState.value = 'idle'
       printDialogOpen.value = true
       saving.value = false
-    }
-    catch (error) {
+  }
+  catch (error) {
       saving.value = false
       saveError.value = error instanceof Error ? error.message : 'Não foi possível registrar a entrada.'
-    }
-  }, 450)
+  }
 }
 async function printLabels() {
   const label = labelSnapshot.value
@@ -137,24 +143,11 @@ async function printLabels() {
       throw new Error('Não foi possível acessar o serviço de impressão.')
     printState.value = 'printing'
     await printFrozenProductLabels({ label, copies: Number(labelCopies.value) })
-    recordFrozenLabelPrint({
-      lotId: label.lotId,
-      copies: Number(labelCopies.value),
-      responsibleName: 'Usuário atual',
-      status: 'success'
-    })
     printState.value = 'success'
   }
   catch (error) {
     printState.value = 'error'
     printError.value = error instanceof Error ? error.message : 'Não foi possível imprimir as etiquetas.'
-    recordFrozenLabelPrint({
-      lotId: label.lotId,
-      copies: Number(labelCopies.value),
-      responsibleName: 'Usuário atual',
-      status: 'error',
-      errorMessage: printError.value
-    })
   }
 }
 function warn(event: BeforeUnloadEvent) {
@@ -164,21 +157,34 @@ function warn(event: BeforeUnloadEvent) {
 }
 
 window.addEventListener('beforeunload', warn)
+watch([configurationId, manufacturedOn, producedQuantity], () => {
+  if (!saving.value && !savedLot.value) pendingEntryKey.value = ''
+})
+watch(manufacturedOn, async value => {
+  expirationOn.value = ''
+  if (!props.apiRequest || !value) return
+  try { expirationOn.value = await previewFrozenExpiration(props.apiRequest, value.toString()) }
+  catch { saveError.value = 'Não foi possível calcular a validade pela API.' }
+})
+onMounted(load)
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', warn)
-  if (navigationTimeout) clearTimeout(navigationTimeout)
 })
 </script>
 
 <template>
+  <div v-if="loading" class="animate-pulse space-y-4" aria-label="Carregando configurações" aria-busy="true">
+    <div class="h-72 rounded-lg border border-slate-200 bg-white" />
+  </div>
+
   <EmptyState
-    v-if="!configurations.length"
+    v-else-if="loadingFailed || !configurations.length"
     class="bg-white shadow-sm"
     size="large"
-    title="Nenhuma configuração ativa"
-    description="Habilite um item produzível antes de registrar sua entrada no estoque.">
-    <template #icon><SnowflakeIcon /></template>
-    <template #action><Button type="button" size="small" variant="secondary" @click="goToConfigurations">Ver produtos habilitados</Button></template>
+    :title="loadingFailed ? 'Não foi possível carregar as configurações' : 'Nenhuma configuração ativa'"
+    :description="loadingFailed ? 'Verifique a conexão e tente novamente.' : 'Habilite um item produzível antes de registrar sua entrada no estoque.'">
+    <template #icon><TriangleAlertIcon v-if="loadingFailed" /><SnowflakeIcon v-else /></template>
+    <template #action><Button type="button" size="small" variant="secondary" @click="loadingFailed ? load() : goToConfigurations()">{{ loadingFailed ? 'Tentar novamente' : 'Ver produtos habilitados' }}</Button></template>
   </EmptyState>
 
   <form v-else class="space-y-4 pb-20 lg:pb-0" @submit.prevent="save">
