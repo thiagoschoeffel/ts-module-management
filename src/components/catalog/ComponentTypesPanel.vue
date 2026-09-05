@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
-  Badge, BoxesIcon, Button, Card, Checkbox, DataTable, Drawer, EmptyState, Input,
+  Alert, Badge, BoxesIcon, Button, Card, Checkbox, DataTable, Drawer, EmptyState, Input,
   Pagination, sanitizeRichText, SearchIcon, Tabs, Textarea, TriangleAlertIcon, type DataTableColumn,
   type DataTableRow, type DataTableSortDirection, type TabItem
 } from '@thiagoschoeffel/ts-components'
@@ -18,6 +18,7 @@ const initialMockScenario = initialParams.get('mock')
 const mockScenario: ComponentTypeListMockScenario = validMockScenarios.has(initialMockScenario as ComponentTypeListMockScenario)
   ? initialMockScenario as ComponentTypeListMockScenario
   : 'padrao'
+const saveError = ref('')
 const initialPage = Number(initialParams.get('pagina'))
 const initialSortKey = initialParams.get('ordenar')
 const validSortKeys = new Set<ComponentTypeSortKey>(['name', 'description', 'active'])
@@ -167,14 +168,17 @@ function openForm(item?: ComponentType) {
   description.value = item?.description ?? ''
   active.value = item?.active ?? true
   showValidation.value = false
+  saveError.value = ''
   drawerOpen.value = true
 }
-function save() {
+async function save() {
   showValidation.value = true
   if (nameError.value) return
-  saveComponentType({ id: editingId.value ?? nextComponentTypeId(), name: name.value.trim(), description: description.value.trim() || undefined, active: active.value })
-  version.value++
-  drawerOpen.value = false
+  try {
+    await saveComponentType({ id: editingId.value ?? nextComponentTypeId(), name: name.value.trim(), description: description.value.trim() || undefined, active: active.value })
+    version.value++; drawerOpen.value = false
+  }
+  catch (error) { saveError.value = error instanceof Error ? error.message : 'Não foi possível salvar o tipo.' }
 }
 
 defineExpose({ openCreate: () => openForm() })
@@ -239,6 +243,7 @@ onBeforeUnmount(() => {
     </Card>
 
     <Drawer v-model:open="drawerOpen" size="large" :title="editingId ? 'Editar tipo de componente' : 'Novo tipo de componente'" description="Defina um papel comercial reutilizável na estrutura das ofertas.">
+      <Alert v-if="saveError" class="mb-4" variants="danger" :description="saveError" />
       <div class="space-y-5">
         <Input v-model="name" label="Nome do tipo" description="Use um nome curto que identifique o papel na oferta, sem citar um item produzido específico." placeholder="Ex.: Salada P" required :error="nameError" />
         <Textarea v-model="description" label="Descrição" description="Explique como este tipo deve ser entendido ao configurar ofertas e cardápios." rich-text placeholder="Ex.: Porção pequena de salada definida pelo cardápio do dia." :rows="4" />

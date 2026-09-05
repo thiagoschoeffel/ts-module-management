@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Button, ChevronLeftIcon, EmptyState, PageHeader, PlusIcon } from '@thiagoschoeffel/ts-components'
+import { computed, onMounted, ref } from 'vue'
+import { Alert, Button, ChevronLeftIcon, EmptyState, PageHeader, PlusIcon, TriangleAlertIcon } from '@thiagoschoeffel/ts-components'
 import '@thiagoschoeffel/ts-components/style.css'
 import './style.css'
 import { managementPages } from './config/managementPages'
 import { getOffer } from './mocks/catalogStore'
+import { configureCatalogApi } from './mocks/catalogStore'
 import { getDeliveryDriver } from './mocks/deliveryDriverStore'
 import { getProducible } from './mocks/producibleStore'
+import { configureProducibleApi } from './mocks/producibleStore'
 import { getUser } from './mocks/userStore'
 import CatalogPage from './pages/CatalogPage.vue'
 import DeliveryDriverFormPage from './pages/DeliveryDriverFormPage.vue'
@@ -54,8 +56,18 @@ const props = withDefaults(defineProps<{
 })
 
 const page = computed(() => managementPages[props.section])
-const producible = computed(() => getProducible(props.producibleId))
-const offer = computed(() => getOffer(props.offerId))
+const authoritativeLoading = ref(false)
+const authoritativeError = ref('')
+const authoritativeVersion = ref(0)
+onMounted(async () => {
+  if (!props.apiRequest || !['catalogo', 'produziveis'].includes(props.section)) return
+  authoritativeLoading.value = true
+  try { await Promise.all([configureCatalogApi(props.apiRequest), configureProducibleApi(props.apiRequest)]) }
+  catch (error) { authoritativeError.value = error instanceof Error ? error.message : 'Não foi possível carregar os dados autoritativos.' }
+  finally { authoritativeLoading.value = false; authoritativeVersion.value++ }
+})
+const producible = computed(() => { authoritativeVersion.value; return getProducible(props.producibleId) })
+const offer = computed(() => { authoritativeVersion.value; return getOffer(props.offerId) })
 const deliveryDriver = computed(() => getDeliveryDriver(props.deliveryDriverId))
 const user = computed(() => getUser(props.userId))
 const isListPage = computed(() => (props.section === 'produziveis' && props.produciblePage === 'list')
@@ -209,7 +221,13 @@ function createUser() {
       </Button>
     </div>
 
+    <Alert v-if="authoritativeError" class="mt-6" variants="danger" title="Não foi possível carregar os dados autoritativos" :description="authoritativeError">
+      <template #icon><TriangleAlertIcon /></template>
+    </Alert>
+    <div v-else-if="authoritativeLoading" class="mt-6 h-40 animate-pulse rounded-lg border border-slate-200 bg-white" aria-label="Carregando dados autoritativos" />
     <main
+      v-else
+      :key="authoritativeVersion"
       :class="[
         (props.section === 'catalogo' && props.catalogPage === 'list') || (props.section === 'congelados' && props.frozenPage === 'list') ? '' : 'mt-6',
         isListPage ? 'md:min-h-0 md:flex-1' : ''
