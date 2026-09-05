@@ -1,27 +1,24 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
   Alert, AlertDialog, Badge, Button, Card, CheckIcon, ChevronLeftIcon, Dialog, Drawer,
   EmptyState, InfoIcon, Input, PrinterIcon, PrintPreview, SnowflakeIcon, Textarea, TriangleAlertIcon,
   richTextToPlainText, sanitizeRichText
 } from '@thiagoschoeffel/ts-components'
-import {
-  getFrozenLotDetail,
-  recordFrozenLabelPrint,
-  recordFrozenStockAdjustment
-} from '../mocks/frozenStock'
+import { loadFrozenLot, registerFrozenMovement } from '../services/frozenStockApi'
 import { printFrozenProductLabels, type LabelPrintState } from '../services/frozenLabelPrinting'
 import type {
   FrozenLabelPrintRecord,
   FrozenLotDetail,
   FrozenLotStatus,
-  FrozenMovementType
+  FrozenMovementType,
+  AuthenticatedApiRequest
 } from '../types/frozenStock'
 import { navigate } from '../utils/navigation'
 
 type StockAction = 'adjust' | 'discard'
 
-const props = defineProps<{ frozenLotId?: string }>()
+const props = defineProps<{ frozenLotId?: string, apiRequest?: AuthenticatedApiRequest }>()
 const params = new URLSearchParams(window.location.search)
 const detail = ref<FrozenLotDetail>()
 const loading = ref(true)
@@ -39,9 +36,8 @@ const printDialogOpen = ref(false)
 const labelCopies = ref<number>(1)
 const printState = ref<LabelPrintState>('idle')
 const printError = ref('')
-let loadingTimeout: ReturnType<typeof setTimeout> | undefined
-let actionTimeout: ReturnType<typeof setTimeout> | undefined
 let simulatedPrintFailureShown = false
+let pendingMovementKey = ''
 
 const lot = computed(() => detail.value?.lot)
 const label = computed(() => lot.value?.labelSnapshot)
@@ -66,17 +62,25 @@ const labelCopiesError = computed(() => !Number.isInteger(Number(labelCopies.val
   ? 'Informe pelo menos uma etiqueta.'
   : undefined)
 
-function load() {
+async function load() {
   failed.value = false
   loading.value = true
-  if (loadingTimeout) clearTimeout(loadingTimeout)
-  loadingTimeout = setTimeout(() => {
-    failed.value = params.get('mock') === 'erro'
-    detail.value = failed.value ? undefined : getFrozenLotDetail(props.frozenLotId)
+  try {
+    if (!props.apiRequest || !props.frozenLotId) throw new Error('Lote indisponível.')
+    detail.value = await loadFrozenLot(props.apiRequest, props.frozenLotId)
+  }
+  catch {
+    failed.value = true
+    detail.value = undefined
+  }
+  finally {
     loading.value = false
-  }, 300)
+  }
 }
-function refresh() { detail.value = getFrozenLotDetail(props.frozenLotId) }
+async function refresh() {
+  if (!props.apiRequest || !props.frozenLotId) return
+  detail.value = await loadFrozenLot(props.apiRequest, props.frozenLotId)
+}
 function returnUrl() {
   const candidate = params.get('retorno')
   return candidate && /^\/congelados(?:\?.*)?$/.test(candidate) ? candidate : '/congelados'
@@ -130,6 +134,7 @@ function openAction(nextAction: StockAction) {
   actionReason.value = ''
   showActionValidation.value = false
   actionError.value = ''
+  pendingMovementKey = ''
   actionDrawerOpen.value = true
 }
 function requestSaveAction() {
@@ -139,31 +144,29 @@ function requestSaveAction() {
   if (action.value === 'discard') discardConfirmationOpen.value = true
   else saveAction()
 }
-function saveAction() {
-  if (!lot.value) return
+async function saveAction() {
+  if (!lot.value || !props.apiRequest) return
   discardConfirmationOpen.value = false
   savingAction.value = true
-  if (actionTimeout) clearTimeout(actionTimeout)
-  actionTimeout = setTimeout(() => {
-    try {
-      recordFrozenStockAdjustment({
-        lotId: lot.value!.id,
+  try {
+      pendingMovementKey ||= crypto.randomUUID()
+      await registerFrozenMovement(props.apiRequest, lot.value.id, {
+        type: action.value,
         quantity: Number(actionQuantity.value),
         reason: actionReason.value,
-        responsibleName: 'Usuário atual',
-        type: action.value === 'adjust' ? 'ajuste-manual' : 'descarte-vencimento'
+        idempotencyKey: pendingMovementKey
       })
-      refresh()
+      await refresh()
       successMessage.value = action.value === 'adjust'
         ? 'Ajuste registrado. O saldo foi atualizado pela nova movimentação.'
         : 'Descarte registrado. As unidades foram retiradas do saldo físico.'
       actionDrawerOpen.value = false
+      pendingMovementKey = ''
     }
     catch (error) {
       actionError.value = error instanceof Error ? error.message : 'Não foi possível registrar a movimentação.'
-    }
-    finally { savingAction.value = false }
-  }, 400)
+  }
+  finally { savingAction.value = false }
 }
 function openPrintDialog() {
   labelCopies.value = 1
@@ -183,25 +186,15 @@ async function printLabels() {
     }
     printState.value = 'printing'
     await printFrozenProductLabels({ label: label.value, copies })
-    recordFrozenLabelPrint({ lotId: label.value.lotId, copies, responsibleName: 'Usuário atual', status: 'success' })
     printState.value = 'success'
-    refresh()
   }
   catch (error) {
     printState.value = 'error'
     printError.value = error instanceof Error ? error.message : 'Não foi possível imprimir as etiquetas.'
-    recordFrozenLabelPrint({
-      lotId: label.value.lotId, copies, responsibleName: 'Usuário atual', status: 'error', errorMessage: printError.value
-    })
-    refresh()
   }
 }
 
 onMounted(load)
-onBeforeUnmount(() => {
-  if (loadingTimeout) clearTimeout(loadingTimeout)
-  if (actionTimeout) clearTimeout(actionTimeout)
-})
 </script>
 
 <template>

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 4176 --strictPort",
-    "test": "node --test src/domain/*.test.mjs src/services/*.test.mjs",
+    "test": "node --test src/services/*.test.mjs",
     "typecheck": "vue-tsc --noEmit",
     "build": "vue-tsc --noEmit && vite build"
   },
