@@ -23,24 +23,10 @@ import ProducibleFormPage from './pages/ProducibleFormPage.vue'
 import ProducibleListPage from './pages/ProducibleListPage.vue'
 import UserFormPage from './pages/UserFormPage.vue'
 import UserListPage from './pages/UserListPage.vue'
-import type { CatalogPage as CatalogPageName, DeliveryDriverPage, FrozenPage, ManagementSection, ProduciblePage, UserPage } from './types/management'
-import type { AuthenticatedApiRequest } from './types/frozenStock'
 import { navigate } from './utils/navigation'
+import type { ManagementPageProps } from './types/federation'
 
-const props = withDefaults(defineProps<{
-  section?: ManagementSection
-  produciblePage?: ProduciblePage
-  producibleId?: string
-  catalogPage?: CatalogPageName
-  offerId?: string
-  frozenPage?: FrozenPage
-  frozenLotId?: string
-  apiRequest?: AuthenticatedApiRequest
-  deliveryDriverPage?: DeliveryDriverPage
-  deliveryDriverId?: string
-  userPage?: UserPage
-  userId?: string
-}>(), {
+const props = withDefaults(defineProps<ManagementPageProps>(), {
   section: 'produziveis',
   produciblePage: 'list',
   producibleId: undefined,
