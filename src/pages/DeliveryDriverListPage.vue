@@ -5,12 +5,12 @@ import {
   Pagination, SearchIcon, Tabs, TriangleAlertIcon, type DataTableColumn,
   type DataTableRow, type DataTableSortDirection, type TabItem
 } from '@thiagoschoeffel/ts-components'
-import { getDeliveryDrivers } from '../mocks/deliveryDriverStore'
+import { getDeliveryDrivers } from '../services/logisticsApi'
 import type { DeliveryDriver } from '../types/deliveryDriver'
 import { navigate } from '../utils/navigation'
 
 type DriverStatus = 'todos' | 'ativos' | 'inativos'
-type DriverSortKey = 'name' | 'phone' | 'active'
+type DriverSortKey = 'name' | 'phone' | 'isActive'
 type DriverMockScenario = 'padrao' | 'sem-entregadores' | 'sem-resultados' | 'erro'
 
 const initialParams = new URLSearchParams(window.location.search)
@@ -20,7 +20,7 @@ const mockScenario: DriverMockScenario = validScenarios.has(requestedScenario as
   ? requestedScenario as DriverMockScenario
   : 'padrao'
 const validStatuses = new Set<DriverStatus>(['todos', 'ativos', 'inativos'])
-const validSortKeys = new Set<DriverSortKey>(['name', 'phone', 'active'])
+const validSortKeys = new Set<DriverSortKey>(['name', 'phone', 'isActive'])
 const requestedPage = Number(initialParams.get('pagina'))
 const search = ref(initialParams.get('busca') ?? (mockScenario === 'sem-resultados' ? 'Entregador inexistente' : ''))
 const debouncedSearch = ref(search.value)
@@ -39,7 +39,7 @@ let restoringHistory = false
 const columns: DataTableColumn[] = [
   { key: 'name', label: 'Entregador', size: 'large', sortable: true },
   { key: 'phone', label: 'Telefone', size: 'medium', sortable: true },
-  { key: 'active', label: 'Status', size: 'small', align: 'center', sortable: true }
+  { key: 'isActive', label: 'Status', size: 'small', align: 'center', sortable: true }
 ]
 const tabs: TabItem[] = [
   { value: 'todos', label: 'Todos' },
@@ -102,7 +102,7 @@ const driversMatchingSearch = computed(() => {
 })
 const filteredDrivers = computed(() => {
   const matching = driversMatchingSearch.value.filter(driver => status.value === 'todos'
-    || (status.value === 'ativos' ? driver.active : !driver.active))
+    || (status.value === 'ativos' ? driver.isActive : !driver.isActive))
   const direction = sortDirection.value === 'asc' ? 1 : -1
   return [...matching].sort((first, second) => {
     const firstValue = first[sortKey.value] ?? ''
@@ -116,8 +116,8 @@ const visibleDrivers = computed(() => filteredDrivers.value.slice((currentPage.v
 const rows = computed<DataTableRow[]>(() => visibleDrivers.value.map(driver => ({ ...driver })))
 const tabCounts = computed<Record<string, number>>(() => ({
   todos: driversMatchingSearch.value.length,
-  ativos: driversMatchingSearch.value.filter(driver => driver.active).length,
-  inativos: driversMatchingSearch.value.filter(driver => !driver.active).length
+  ativos: driversMatchingSearch.value.filter(driver => driver.isActive).length,
+  inativos: driversMatchingSearch.value.filter(driver => !driver.isActive).length
 }))
 const hasFilters = computed(() => Boolean(debouncedSearch.value.trim()) || status.value !== 'todos')
 const visibleStart = computed(() => filteredDrivers.value.length ? (currentPage.value - 1) * itemsPerPage + 1 : 0)
@@ -182,8 +182,8 @@ onBeforeUnmount(() => {
         </EmptyState>
         <Card v-for="driver in isLoading ? [] : visibleDrivers" v-else :key="driver.id">
           <div class="flex items-start justify-between gap-3">
-            <div><p class="font-semibold text-slate-800">{{ driver.name }}</p><p class="mt-1 text-xs text-slate-500">{{ driver.id }}</p></div>
-            <Badge :variant="driver.active ? 'success' : 'danger'">{{ driver.active ? 'Ativo' : 'Inativo' }}</Badge>
+            <div><p class="font-semibold text-slate-800">{{ driver.name }}</p><p class="mt-1 text-xs text-slate-500">{{ driver.identification }}</p></div>
+            <Badge :variant="driver.isActive ? 'success' : 'danger'">{{ driver.isActive ? (driver.isAvailable ? 'Disponível' : 'Indisponível') : 'Inativo' }}</Badge>
           </div>
           <p class="mt-3 text-sm text-slate-600">{{ driver.phone || 'Telefone não informado' }}</p>
           <template #footer><a :href="editHref(driver.id)" class="-mx-6 -my-4 flex items-center justify-between gap-3 px-6 py-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"><span>Editar entregador</span><ArrowRightIcon class="size-4" aria-hidden="true" /></a></template>
@@ -191,9 +191,9 @@ onBeforeUnmount(() => {
       </div>
 
       <DataTable :class="['desktop-only-flex min-h-0 flex-1', !isLoading && (hasLoadingError || visibleDrivers.length === 0) ? '[&_table]:h-full [&_tbody>tr>td]:align-middle' : '']" :columns="columns" :rows="hasLoadingError ? [] : rows" :selectable="false" :loading="isLoading && !hasLoadingError" sort-mode="manual" :sort-key="sortKey" :sort-direction="sortDirection" row-key="id" label="Entregadores filtrados por status e busca" actions-label="Ação" @sort="updateSort">
-        <template #cell-name="{ row }"><p class="font-medium text-slate-800">{{ asDriver(row).name }}</p><p class="mt-1 text-xs text-slate-500">{{ asDriver(row).id }}</p></template>
+        <template #cell-name="{ row }"><p class="font-medium text-slate-800">{{ asDriver(row).name }}</p><p class="mt-1 text-xs text-slate-500">{{ asDriver(row).identification }}</p></template>
         <template #cell-phone="{ row }"><span :class="asDriver(row).phone ? 'font-medium text-slate-700' : 'text-slate-400'">{{ asDriver(row).phone || 'Não informado' }}</span></template>
-        <template #cell-active="{ row }"><Badge :variant="asDriver(row).active ? 'success' : 'danger'">{{ asDriver(row).active ? 'Ativo' : 'Inativo' }}</Badge></template>
+        <template #cell-isActive="{ row }"><Badge :variant="asDriver(row).isActive ? 'success' : 'danger'">{{ asDriver(row).isActive ? (asDriver(row).isAvailable ? 'Disponível' : 'Indisponível') : 'Inativo' }}</Badge></template>
         <template #actions="{ row }"><Button size="small" variant="secondary" @click="editDriver(asDriver(row).id)">Editar<template #trailingIcon><ArrowRightIcon /></template></Button></template>
         <template #empty><EmptyState :bordered="false" size="large" :title="hasLoadingError ? 'Não foi possível carregar os entregadores' : 'Nenhum entregador encontrado'" :description="emptyDescription" :role="hasLoadingError ? 'alert' : 'status'"><template #icon><TriangleAlertIcon v-if="hasLoadingError" /><BikeIcon v-else-if="drivers.length === 0" /><SearchIcon v-else /></template><template #action><Button v-if="hasLoadingError" size="small" variant="secondary" @click="setLoading">Tentar novamente</Button><Button v-else-if="drivers.length === 0" size="small" variant="secondary" @click="createDriver">Novo entregador</Button><Button v-else-if="hasFilters" size="small" variant="secondary" @click="clearFilters">Limpar filtros</Button></template></EmptyState></template>
       </DataTable>
