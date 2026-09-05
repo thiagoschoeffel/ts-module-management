@@ -2,9 +2,15 @@
 
 Aplicação independente que expõe `ManagementPage.vue` por Module Federation.
 O módulo contém as experiências de Produzíveis, Catálogo, Congelados,
-Entregadores e Usuários. Congelados usa a API autenticada como fonte
-autoritativa; as demais áreas ainda usam mocks locais persistidos no navegador
-até seus épicos de integração.
+Entregadores e Usuários. Congelados, Catálogo, Produzíveis e Entregadores usam a
+API autenticada como fonte autoritativa; Usuários ainda preserva a demonstração
+local até sua evolução dedicada.
+
+## Entregadores
+
+As telas de Entregadores persistem identificação, nome, telefone opcional,
+estado ativo e disponibilidade operacional. Edições usam versão otimista e
+somente cadastros ativos e disponíveis podem receber uma nova rota.
 
 ## Congelados
 

@@ -6,7 +6,7 @@ import './style.css'
 import { managementPages } from './config/managementPages'
 import { getOffer } from './mocks/catalogStore'
 import { configureCatalogApi } from './mocks/catalogStore'
-import { getDeliveryDriver } from './mocks/deliveryDriverStore'
+import { configureLogisticsApi, getDeliveryDriver } from './services/logisticsApi'
 import { getProducible } from './mocks/producibleStore'
 import { configureProducibleApi } from './mocks/producibleStore'
 import { getUser } from './mocks/userStore'
@@ -60,9 +60,12 @@ const authoritativeLoading = ref(false)
 const authoritativeError = ref('')
 const authoritativeVersion = ref(0)
 onMounted(async () => {
-  if (!props.apiRequest || !['catalogo', 'produziveis'].includes(props.section)) return
+  if (!props.apiRequest || !['catalogo', 'produziveis', 'entregadores'].includes(props.section)) return
   authoritativeLoading.value = true
-  try { await Promise.all([configureCatalogApi(props.apiRequest), configureProducibleApi(props.apiRequest)]) }
+  try {
+    if (props.section === 'entregadores') await configureLogisticsApi(props.apiRequest)
+    else await Promise.all([configureCatalogApi(props.apiRequest), configureProducibleApi(props.apiRequest)])
+  }
   catch (error) { authoritativeError.value = error instanceof Error ? error.message : 'Não foi possível carregar os dados autoritativos.' }
   finally { authoritativeLoading.value = false; authoritativeVersion.value++ }
 })
