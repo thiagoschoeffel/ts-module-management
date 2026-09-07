@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Alert, AlertDialog, Badge, Button, Card, Checkbox, CheckIcon, Input, TriangleAlertIcon } from '@thiagoschoeffel/ts-components'
-import { getDeliveryDriver, saveDeliveryDriver } from '../services/logisticsApi'
+import type { DeliveryDriverRepository } from '../services/logisticsApi'
 import { navigate } from '../utils/navigation'
 
-const props = withDefaults(defineProps<{ mode?: 'create' | 'edit'; driverId?: string }>(), {
+const props = withDefaults(defineProps<{ repository: DeliveryDriverRepository; mode?: 'create' | 'edit'; driverId?: string }>(), {
   mode: 'create', driverId: undefined
 })
-const driver = computed(() => getDeliveryDriver(props.driverId))
+const driver = computed(() => props.repository.get(props.driverId))
 const name = ref('')
 const identification = ref('')
 const phone = ref('')
@@ -57,7 +57,7 @@ async function save() {
   saving.value = true
   saveError.value = ''
   try {
-    await saveDeliveryDriver({ id: props.mode === 'edit' && props.driverId ? props.driverId : '', identification: identification.value.trim(), name: name.value.trim(), phone: phone.value.trim() || undefined, isActive: active.value, isAvailable: available.value, version: driver.value?.version ?? 0 })
+    await props.repository.save({ id: props.mode === 'edit' && props.driverId ? props.driverId : '', identification: identification.value.trim(), name: name.value.trim(), phone: phone.value.trim() || undefined, isActive: active.value, isAvailable: available.value, version: driver.value?.version ?? 0 })
     saving.value = false
     initialSnapshot.value = snapshot.value
     savedMessage.value = props.mode === 'edit' ? 'Alterações do entregador salvas.' : 'Entregador criado com sucesso.'

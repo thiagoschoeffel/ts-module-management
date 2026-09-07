@@ -5,36 +5,30 @@ import {
   SearchIcon, Tabs, TriangleAlertIcon, UserRoundCogIcon, type DataTableColumn,
   type DataTableRow, type DataTableSortDirection, type TabItem
 } from '@thiagoschoeffel/ts-components'
-import { getUsers } from '../mocks/userStore'
+import type { MembershipRepository } from '../services/membershipApi'
 import type { ManagementUser } from '../types/user'
 import { userRoleBadgeVariants, userRoleLabels } from '../types/user'
 import { navigate } from '../utils/navigation'
 
 type UserStatus = 'todos' | 'ativos' | 'inativos'
 type UserSortKey = 'name' | 'accessId' | 'role' | 'active'
-type UserMockScenario = 'padrao' | 'sem-usuarios' | 'sem-resultados' | 'erro'
+const props = defineProps<{ repository: MembershipRepository }>()
 
 const initialParams = new URLSearchParams(window.location.search)
-const validScenarios = new Set<UserMockScenario>(['padrao', 'sem-usuarios', 'sem-resultados', 'erro'])
-const requestedScenario = initialParams.get('mock')
-const mockScenario: UserMockScenario = validScenarios.has(requestedScenario as UserMockScenario)
-  ? requestedScenario as UserMockScenario
-  : 'padrao'
 const validStatuses = new Set<UserStatus>(['todos', 'ativos', 'inativos'])
 const validSortKeys = new Set<UserSortKey>(['name', 'accessId', 'role', 'active'])
 const requestedPage = Number(initialParams.get('pagina'))
-const search = ref(initialParams.get('busca') ?? (mockScenario === 'sem-resultados' ? 'Usuário inexistente' : ''))
+const search = ref(initialParams.get('busca') ?? '')
 const debouncedSearch = ref(search.value)
 const status = ref<UserStatus>(validStatuses.has(initialParams.get('status') as UserStatus) ? initialParams.get('status') as UserStatus : 'todos')
 const currentPage = ref(Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1)
 const sortKey = ref<UserSortKey>(validSortKeys.has(initialParams.get('ordenar') as UserSortKey) ? initialParams.get('ordenar') as UserSortKey : 'name')
 const sortDirection = ref<DataTableSortDirection>(initialParams.get('direcao') === 'desc' ? 'desc' : 'asc')
-const isLoading = ref(true)
+const isLoading = ref(false)
 const hasLoadingError = ref(false)
 const itemsPerPage = 10
-const users = mockScenario === 'sem-usuarios' ? [] : getUsers()
+const users = computed(() => props.repository.users.value)
 let debounceTimeout: ReturnType<typeof setTimeout> | undefined
-let loadingTimeout: ReturnType<typeof setTimeout> | undefined
 let restoringHistory = false
 
 const columns: DataTableColumn[] = [
@@ -54,14 +48,14 @@ watch(search, value => {
   debounceTimeout = setTimeout(() => debouncedSearch.value = value, 250)
 })
 
-function setLoading() {
-  if (loadingTimeout) clearTimeout(loadingTimeout)
+async function load() {
   isLoading.value = true
   hasLoadingError.value = false
-  loadingTimeout = setTimeout(() => {
+  try { await props.repository.load() }
+  catch { hasLoadingError.value = true }
+  finally {
     isLoading.value = false
-    hasLoadingError.value = mockScenario === 'erro'
-  }, 300)
+  }
 }
 function restoreFromUrl() {
   const params = new URLSearchParams(window.location.search)
@@ -91,12 +85,12 @@ function persistState() {
   }
   if (url.href !== window.location.href) window.history.pushState(window.history.state, '', url)
 }
-watch([debouncedSearch, status, sortKey, sortDirection], () => { currentPage.value = 1; setLoading() })
+watch([debouncedSearch, status, sortKey, sortDirection], () => { currentPage.value = 1 })
 watch([debouncedSearch, status, sortKey, sortDirection, currentPage], persistState)
 
 const usersMatchingSearch = computed(() => {
   const query = debouncedSearch.value.trim().toLocaleLowerCase('pt-BR')
-  return users.filter(user => !query
+  return users.value.filter(user => !query
     || user.id.toLocaleLowerCase('pt-BR').includes(query)
     || user.name.toLocaleLowerCase('pt-BR').includes(query)
     || user.accessId.toLocaleLowerCase('pt-BR').includes(query)
@@ -146,10 +140,9 @@ function handlePopState() {
   queueMicrotask(() => restoringHistory = false)
 }
 
-onMounted(() => { window.addEventListener('popstate', handlePopState); setLoading() })
+onMounted(() => { window.addEventListener('popstate', handlePopState) })
 onBeforeUnmount(() => {
   if (debounceTimeout) clearTimeout(debounceTimeout)
-  if (loadingTimeout) clearTimeout(loadingTimeout)
   window.removeEventListener('popstate', handlePopState)
 })
 </script>
@@ -180,7 +173,7 @@ onBeforeUnmount(() => {
         </template>
         <EmptyState v-else-if="hasLoadingError || visibleUsers.length === 0" class="bg-white shadow-sm" size="large" :title="hasLoadingError ? 'Não foi possível carregar os usuários' : 'Nenhum usuário encontrado'" :description="emptyDescription" :role="hasLoadingError ? 'alert' : 'status'">
           <template #icon><TriangleAlertIcon v-if="hasLoadingError" /><UserRoundCogIcon v-else-if="users.length === 0" /><SearchIcon v-else /></template>
-          <template #action><Button v-if="hasLoadingError" size="small" @click="setLoading">Tentar novamente</Button><Button v-else-if="users.length === 0" size="small" variant="secondary" @click="createUser">Novo usuário</Button><Button v-else-if="hasFilters" size="small" variant="secondary" @click="clearFilters">Limpar filtros</Button></template>
+          <template #action><Button v-if="hasLoadingError" size="small" @click="load">Tentar novamente</Button><Button v-else-if="users.length === 0" size="small" variant="secondary" @click="createUser">Associar identidade</Button><Button v-else-if="hasFilters" size="small" variant="secondary" @click="clearFilters">Limpar filtros</Button></template>
         </EmptyState>
         <Card v-for="user in isLoading ? [] : visibleUsers" v-else :key="user.id">
           <div class="flex items-start justify-between gap-3">
@@ -198,7 +191,7 @@ onBeforeUnmount(() => {
         <template #cell-role="{ row }"><Badge :variant="userRoleBadgeVariants[asUser(row).role]">{{ userRoleLabels[asUser(row).role] }}</Badge></template>
         <template #cell-active="{ row }"><Badge :variant="asUser(row).active ? 'success' : 'danger'">{{ asUser(row).active ? 'Ativo' : 'Inativo' }}</Badge></template>
         <template #actions="{ row }"><Button size="small" variant="secondary" @click="editUser(asUser(row).id)">Editar<template #trailingIcon><ArrowRightIcon /></template></Button></template>
-        <template #empty><EmptyState :bordered="false" size="large" :title="hasLoadingError ? 'Não foi possível carregar os usuários' : 'Nenhum usuário encontrado'" :description="emptyDescription" :role="hasLoadingError ? 'alert' : 'status'"><template #icon><TriangleAlertIcon v-if="hasLoadingError" /><UserRoundCogIcon v-else-if="users.length === 0" /><SearchIcon v-else /></template><template #action><Button v-if="hasLoadingError" size="small" variant="secondary" @click="setLoading">Tentar novamente</Button><Button v-else-if="users.length === 0" size="small" variant="secondary" @click="createUser">Novo usuário</Button><Button v-else-if="hasFilters" size="small" variant="secondary" @click="clearFilters">Limpar filtros</Button></template></EmptyState></template>
+        <template #empty><EmptyState :bordered="false" size="large" :title="hasLoadingError ? 'Não foi possível carregar os usuários' : 'Nenhum usuário encontrado'" :description="emptyDescription" :role="hasLoadingError ? 'alert' : 'status'"><template #icon><TriangleAlertIcon v-if="hasLoadingError" /><UserRoundCogIcon v-else-if="users.length === 0" /><SearchIcon v-else /></template><template #action><Button v-if="hasLoadingError" size="small" variant="secondary" @click="load">Tentar novamente</Button><Button v-else-if="users.length === 0" size="small" variant="secondary" @click="createUser">Associar identidade</Button><Button v-else-if="hasFilters" size="small" variant="secondary" @click="clearFilters">Limpar filtros</Button></template></EmptyState></template>
       </DataTable>
 
       <div v-if="!hasLoadingError" class="mt-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
