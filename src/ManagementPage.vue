@@ -6,10 +6,10 @@ import './style.css'
 import { managementPages } from './config/managementPages'
 import { getOffer } from './mocks/catalogStore'
 import { configureCatalogApi } from './mocks/catalogStore'
-import { configureLogisticsApi, getDeliveryDriver } from './services/logisticsApi'
+import { createDeliveryDriverRepository } from './services/logisticsApi'
 import { getProducible } from './mocks/producibleStore'
 import { configureProducibleApi } from './mocks/producibleStore'
-import { getUser } from './mocks/userStore'
+import { createMembershipRepository } from './services/membershipApi'
 import CatalogPage from './pages/CatalogPage.vue'
 import DeliveryDriverFormPage from './pages/DeliveryDriverFormPage.vue'
 import DeliveryDriverListPage from './pages/DeliveryDriverListPage.vue'
@@ -45,11 +45,18 @@ const page = computed(() => managementPages[props.section])
 const authoritativeLoading = ref(false)
 const authoritativeError = ref('')
 const authoritativeVersion = ref(0)
+const deliveryDriverRepository = props.apiRequest ? createDeliveryDriverRepository(props.apiRequest) : undefined
+const membershipRepository = props.apiRequest ? createMembershipRepository(props.apiRequest) : undefined
 onMounted(async () => {
-  if (!props.apiRequest || !['catalogo', 'produziveis', 'entregadores'].includes(props.section)) return
+  if (!['catalogo', 'produziveis', 'entregadores', 'usuarios'].includes(props.section)) return
+  if (!props.apiRequest) {
+    authoritativeError.value = 'A sessão autenticada da API não está disponível.'
+    return
+  }
   authoritativeLoading.value = true
   try {
-    if (props.section === 'entregadores') await configureLogisticsApi(props.apiRequest)
+    if (props.section === 'entregadores') await deliveryDriverRepository!.load()
+    else if (props.section === 'usuarios') await membershipRepository!.load()
     else await Promise.all([configureCatalogApi(props.apiRequest), configureProducibleApi(props.apiRequest)])
   }
   catch (error) { authoritativeError.value = error instanceof Error ? error.message : 'Não foi possível carregar os dados autoritativos.' }
@@ -57,8 +64,8 @@ onMounted(async () => {
 })
 const producible = computed(() => { authoritativeVersion.value; return getProducible(props.producibleId) })
 const offer = computed(() => { authoritativeVersion.value; return getOffer(props.offerId) })
-const deliveryDriver = computed(() => getDeliveryDriver(props.deliveryDriverId))
-const user = computed(() => getUser(props.userId))
+const deliveryDriver = computed(() => deliveryDriverRepository?.get(props.deliveryDriverId))
+const user = computed(() => membershipRepository?.get(props.userId))
 const isListPage = computed(() => (props.section === 'produziveis' && props.produciblePage === 'list')
   || (props.section === 'catalogo' && props.catalogPage === 'list')
   || (props.section === 'congelados' && props.frozenPage === 'list')
@@ -82,7 +89,7 @@ const pageTitle = computed(() => {
     return page.value.title
   }
   if (props.section === 'usuarios') {
-    if (props.userPage === 'new') return 'Novo usuário'
+    if (props.userPage === 'new') return 'Associar identidade'
     if (props.userPage === 'edit') return user.value ? `Editar ${user.value.name}` : 'Editar usuário'
     return page.value.title
   }
@@ -110,7 +117,7 @@ const pageSubtitle = computed(() => {
     return page.value.subtitle
   }
   if (props.section === 'usuarios') {
-    if (props.userPage === 'new') return 'Cadastre uma pessoa e defina seu perfil inicial de acesso.'
+    if (props.userPage === 'new') return 'Vincule uma identidade OIDC já provisionada e defina seu perfil nesta organização.'
     if (props.userPage === 'edit') return 'Atualize a identificação, o perfil ou o status do usuário.'
     return page.value.subtitle
   }
@@ -166,7 +173,7 @@ function createUser() {
 
       <a
         v-if="props.section === 'produziveis' && props.produciblePage !== 'list'" :href="props.produciblePage === 'detail' ? listReturnUrl() : props.producibleId ? `/produziveis/${props.producibleId}?retorno=${encodeURIComponent(listReturnUrl())}` : listReturnUrl()"
-        class="hidden items-center gap-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-800 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 sm:inline-flex">
+        class="inline-flex items-center gap-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-800 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40">
         <ChevronLeftIcon class="size-4" aria-hidden="true" />
         {{ props.produciblePage === 'detail' ? 'Voltar para produzíveis' : props.producibleId ? 'Voltar para o item' : 'Voltar para produzíveis' }}
       </a>
@@ -177,7 +184,7 @@ function createUser() {
       <a
         v-if="props.section === 'catalogo' && props.catalogPage !== 'list'"
         :href="props.catalogPage === 'detail' ? catalogReturnUrl() : props.offerId ? `/catalogo/${props.offerId}?retorno=${encodeURIComponent(catalogReturnUrl())}` : catalogReturnUrl()"
-        class="hidden items-center gap-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-800 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 sm:inline-flex">
+        class="inline-flex items-center gap-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-800 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40">
         <ChevronLeftIcon class="size-4" aria-hidden="true" />
         {{ props.catalogPage === 'detail' ? 'Voltar para o Catálogo' : props.offerId ? 'Voltar para a oferta' : 'Voltar para o Catálogo' }}
       </a>
@@ -191,7 +198,7 @@ function createUser() {
       <a
         v-if="props.section === 'entregadores' && props.deliveryDriverPage !== 'list'"
         :href="deliveryDriverReturnUrl()"
-        class="hidden items-center gap-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-800 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 sm:inline-flex">
+        class="inline-flex items-center gap-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-800 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40">
         <ChevronLeftIcon class="size-4" aria-hidden="true" />
         Voltar para entregadores
       </a>
@@ -201,12 +208,12 @@ function createUser() {
       <a
         v-if="props.section === 'usuarios' && props.userPage !== 'list'"
         :href="userReturnUrl()"
-        class="hidden items-center gap-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-800 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 sm:inline-flex">
+        class="inline-flex items-center gap-1 text-sm font-medium text-slate-400 transition-colors hover:text-slate-800 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40">
         <ChevronLeftIcon class="size-4" aria-hidden="true" />
         Voltar para usuários
       </a>
       <Button v-if="props.section === 'usuarios' && props.userPage === 'list'" type="button" @click="createUser">
-        <template #icon><PlusIcon /></template>Novo usuário
+        <template #icon><PlusIcon /></template>Associar identidade
       </Button>
     </div>
 
@@ -235,8 +242,8 @@ function createUser() {
         <OfferDetailPage v-else :offer-id="props.offerId" />
       </template>
       <template v-else-if="props.section === 'entregadores'">
-        <DeliveryDriverListPage v-if="props.deliveryDriverPage === 'list'" />
-        <DeliveryDriverFormPage v-else :mode="props.deliveryDriverPage === 'edit' ? 'edit' : 'create'" :driver-id="props.deliveryDriverId" />
+        <DeliveryDriverListPage v-if="props.deliveryDriverPage === 'list' && deliveryDriverRepository" :repository="deliveryDriverRepository" />
+        <DeliveryDriverFormPage v-else-if="deliveryDriverRepository" :repository="deliveryDriverRepository" :mode="props.deliveryDriverPage === 'edit' ? 'edit' : 'create'" :driver-id="props.deliveryDriverId" />
       </template>
       <template v-else-if="props.section === 'congelados'">
         <FrozenStockPage v-if="props.frozenPage === 'list'" :api-request="props.apiRequest" />
@@ -244,8 +251,8 @@ function createUser() {
         <FrozenLotDetailPage v-else :frozen-lot-id="props.frozenLotId" :api-request="props.apiRequest" />
       </template>
       <template v-else-if="props.section === 'usuarios'">
-        <UserListPage v-if="props.userPage === 'list'" />
-        <UserFormPage v-else :mode="props.userPage === 'edit' ? 'edit' : 'create'" :user-id="props.userId" />
+        <UserListPage v-if="props.userPage === 'list' && membershipRepository" :repository="membershipRepository" />
+        <UserFormPage v-else-if="membershipRepository" :repository="membershipRepository" :mode="props.userPage === 'edit' ? 'edit' : 'create'" :user-id="props.userId" />
       </template>
       <EmptyState v-else class="bg-white shadow-sm" title="Experiência ainda não disponível" description="Esta área de Gestão será implementada em uma entrega futura." />
     </main>

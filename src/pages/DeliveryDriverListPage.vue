@@ -5,35 +5,29 @@ import {
   Pagination, SearchIcon, Tabs, TriangleAlertIcon, type DataTableColumn,
   type DataTableRow, type DataTableSortDirection, type TabItem
 } from '@thiagoschoeffel/ts-components'
-import { getDeliveryDrivers } from '../services/logisticsApi'
+import type { DeliveryDriverRepository } from '../services/logisticsApi'
 import type { DeliveryDriver } from '../types/deliveryDriver'
 import { navigate } from '../utils/navigation'
 
 type DriverStatus = 'todos' | 'ativos' | 'inativos'
 type DriverSortKey = 'name' | 'phone' | 'isActive'
-type DriverMockScenario = 'padrao' | 'sem-entregadores' | 'sem-resultados' | 'erro'
+const props = defineProps<{ repository: DeliveryDriverRepository }>()
 
 const initialParams = new URLSearchParams(window.location.search)
-const validScenarios = new Set<DriverMockScenario>(['padrao', 'sem-entregadores', 'sem-resultados', 'erro'])
-const requestedScenario = initialParams.get('mock')
-const mockScenario: DriverMockScenario = validScenarios.has(requestedScenario as DriverMockScenario)
-  ? requestedScenario as DriverMockScenario
-  : 'padrao'
 const validStatuses = new Set<DriverStatus>(['todos', 'ativos', 'inativos'])
 const validSortKeys = new Set<DriverSortKey>(['name', 'phone', 'isActive'])
 const requestedPage = Number(initialParams.get('pagina'))
-const search = ref(initialParams.get('busca') ?? (mockScenario === 'sem-resultados' ? 'Entregador inexistente' : ''))
+const search = ref(initialParams.get('busca') ?? '')
 const debouncedSearch = ref(search.value)
 const status = ref<DriverStatus>(validStatuses.has(initialParams.get('status') as DriverStatus) ? initialParams.get('status') as DriverStatus : 'todos')
 const currentPage = ref(Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1)
 const sortKey = ref<DriverSortKey>(validSortKeys.has(initialParams.get('ordenar') as DriverSortKey) ? initialParams.get('ordenar') as DriverSortKey : 'name')
 const sortDirection = ref<DataTableSortDirection>(initialParams.get('direcao') === 'desc' ? 'desc' : 'asc')
-const isLoading = ref(true)
+const isLoading = ref(false)
 const hasLoadingError = ref(false)
 const itemsPerPage = 10
-const drivers = mockScenario === 'sem-entregadores' ? [] : getDeliveryDrivers()
+const drivers = computed(() => props.repository.drivers.value)
 let debounceTimeout: ReturnType<typeof setTimeout> | undefined
-let loadingTimeout: ReturnType<typeof setTimeout> | undefined
 let restoringHistory = false
 
 const columns: DataTableColumn[] = [
@@ -52,14 +46,14 @@ watch(search, value => {
   debounceTimeout = setTimeout(() => debouncedSearch.value = value, 250)
 })
 
-function setLoading() {
-  if (loadingTimeout) clearTimeout(loadingTimeout)
+async function load() {
   isLoading.value = true
   hasLoadingError.value = false
-  loadingTimeout = setTimeout(() => {
+  try { await props.repository.load() }
+  catch { hasLoadingError.value = true }
+  finally {
     isLoading.value = false
-    hasLoadingError.value = mockScenario === 'erro'
-  }, 300)
+  }
 }
 function restoreFromUrl() {
   const params = new URLSearchParams(window.location.search)
@@ -89,13 +83,13 @@ function persistState() {
   }
   if (url.href !== window.location.href) window.history.pushState(window.history.state, '', url)
 }
-watch([debouncedSearch, status, sortKey, sortDirection], () => { currentPage.value = 1; setLoading() })
+watch([debouncedSearch, status, sortKey, sortDirection], () => { currentPage.value = 1 })
 watch([debouncedSearch, status, sortKey, sortDirection, currentPage], persistState)
 
 const driversMatchingSearch = computed(() => {
   const query = debouncedSearch.value.trim().toLocaleLowerCase('pt-BR')
   const phoneQuery = query.replace(/\D/g, '')
-  return drivers.filter(driver => !query
+  return drivers.value.filter(driver => !query
     || driver.id.toLocaleLowerCase('pt-BR').includes(query)
     || driver.name.toLocaleLowerCase('pt-BR').includes(query)
     || (phoneQuery.length > 0 && (driver.phone ?? '').replace(/\D/g, '').includes(phoneQuery)))
@@ -144,10 +138,9 @@ function handlePopState() {
   queueMicrotask(() => restoringHistory = false)
 }
 
-onMounted(() => { window.addEventListener('popstate', handlePopState); setLoading() })
+onMounted(() => { window.addEventListener('popstate', handlePopState) })
 onBeforeUnmount(() => {
   if (debounceTimeout) clearTimeout(debounceTimeout)
-  if (loadingTimeout) clearTimeout(loadingTimeout)
   window.removeEventListener('popstate', handlePopState)
 })
 </script>
@@ -178,7 +171,7 @@ onBeforeUnmount(() => {
         </template>
         <EmptyState v-else-if="hasLoadingError || visibleDrivers.length === 0" class="bg-white shadow-sm" size="large" :title="hasLoadingError ? 'Não foi possível carregar os entregadores' : 'Nenhum entregador encontrado'" :description="emptyDescription" :role="hasLoadingError ? 'alert' : 'status'">
           <template #icon><TriangleAlertIcon v-if="hasLoadingError" /><BikeIcon v-else-if="drivers.length === 0" /><SearchIcon v-else /></template>
-          <template #action><Button v-if="hasLoadingError" size="small" @click="setLoading">Tentar novamente</Button><Button v-else-if="drivers.length === 0" size="small" variant="secondary" @click="createDriver">Novo entregador</Button><Button v-else-if="hasFilters" size="small" variant="secondary" @click="clearFilters">Limpar filtros</Button></template>
+          <template #action><Button v-if="hasLoadingError" size="small" @click="load">Tentar novamente</Button><Button v-else-if="drivers.length === 0" size="small" variant="secondary" @click="createDriver">Novo entregador</Button><Button v-else-if="hasFilters" size="small" variant="secondary" @click="clearFilters">Limpar filtros</Button></template>
         </EmptyState>
         <Card v-for="driver in isLoading ? [] : visibleDrivers" v-else :key="driver.id">
           <div class="flex items-start justify-between gap-3">
@@ -195,7 +188,7 @@ onBeforeUnmount(() => {
         <template #cell-phone="{ row }"><span :class="asDriver(row).phone ? 'font-medium text-slate-700' : 'text-slate-400'">{{ asDriver(row).phone || 'Não informado' }}</span></template>
         <template #cell-isActive="{ row }"><Badge :variant="asDriver(row).isActive ? 'success' : 'danger'">{{ asDriver(row).isActive ? (asDriver(row).isAvailable ? 'Disponível' : 'Indisponível') : 'Inativo' }}</Badge></template>
         <template #actions="{ row }"><Button size="small" variant="secondary" @click="editDriver(asDriver(row).id)">Editar<template #trailingIcon><ArrowRightIcon /></template></Button></template>
-        <template #empty><EmptyState :bordered="false" size="large" :title="hasLoadingError ? 'Não foi possível carregar os entregadores' : 'Nenhum entregador encontrado'" :description="emptyDescription" :role="hasLoadingError ? 'alert' : 'status'"><template #icon><TriangleAlertIcon v-if="hasLoadingError" /><BikeIcon v-else-if="drivers.length === 0" /><SearchIcon v-else /></template><template #action><Button v-if="hasLoadingError" size="small" variant="secondary" @click="setLoading">Tentar novamente</Button><Button v-else-if="drivers.length === 0" size="small" variant="secondary" @click="createDriver">Novo entregador</Button><Button v-else-if="hasFilters" size="small" variant="secondary" @click="clearFilters">Limpar filtros</Button></template></EmptyState></template>
+        <template #empty><EmptyState :bordered="false" size="large" :title="hasLoadingError ? 'Não foi possível carregar os entregadores' : 'Nenhum entregador encontrado'" :description="emptyDescription" :role="hasLoadingError ? 'alert' : 'status'"><template #icon><TriangleAlertIcon v-if="hasLoadingError" /><BikeIcon v-else-if="drivers.length === 0" /><SearchIcon v-else /></template><template #action><Button v-if="hasLoadingError" size="small" variant="secondary" @click="load">Tentar novamente</Button><Button v-else-if="drivers.length === 0" size="small" variant="secondary" @click="createDriver">Novo entregador</Button><Button v-else-if="hasFilters" size="small" variant="secondary" @click="clearFilters">Limpar filtros</Button></template></EmptyState></template>
       </DataTable>
 
       <div v-if="!hasLoadingError" class="mt-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
