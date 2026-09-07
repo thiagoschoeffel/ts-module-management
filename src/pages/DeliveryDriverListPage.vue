@@ -183,7 +183,7 @@ onBeforeUnmount(() => {
         </Card>
       </div>
 
-      <DataTable :class="['desktop-only-flex min-h-0 flex-1', !isLoading && (hasLoadingError || visibleDrivers.length === 0) ? '[&_table]:h-full [&_tbody>tr>td]:align-middle' : '']" :columns="columns" :rows="hasLoadingError ? [] : rows" :selectable="false" :loading="isLoading && !hasLoadingError" sort-mode="manual" :sort-key="sortKey" :sort-direction="sortDirection" row-key="id" label="Entregadores filtrados por status e busca" actions-label="Ação" @sort="updateSort">
+      <DataTable class="desktop-only-flex min-h-0 flex-1" :columns="columns" :rows="hasLoadingError ? [] : rows" :selectable="false" :loading="isLoading && !hasLoadingError" sort-mode="manual" :sort-key="sortKey" :sort-direction="sortDirection" row-key="id" label="Entregadores filtrados por status e busca" actions-label="Ação" @sort="updateSort">
         <template #cell-name="{ row }"><p class="font-medium text-slate-800">{{ asDriver(row).name }}</p><p class="mt-1 text-xs text-slate-500">{{ asDriver(row).identification }}</p></template>
         <template #cell-phone="{ row }"><span :class="asDriver(row).phone ? 'font-medium text-slate-700' : 'text-slate-400'">{{ asDriver(row).phone || 'Não informado' }}</span></template>
         <template #cell-isActive="{ row }"><Badge :variant="asDriver(row).isActive ? 'success' : 'danger'">{{ asDriver(row).isActive ? (asDriver(row).isAvailable ? 'Disponível' : 'Indisponível') : 'Inativo' }}</Badge></template>

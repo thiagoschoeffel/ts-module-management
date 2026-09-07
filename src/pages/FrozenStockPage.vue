@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   Alert, ArrowRightIcon, Badge, Button, Card, Checkbox, CheckIcon, DataTable, Drawer, EmptyState,
-  Input, PlusIcon, SearchIcon, Select, SnowflakeIcon, Tabs, TriangleAlertIcon,
+  Input, Pagination, PlusIcon, SearchIcon, Select, SnowflakeIcon, Tabs, TriangleAlertIcon,
   type DataTableColumn, type DataTableRow, type DataTableSortDirection, type SelectOption,
   type TabItem
 } from '@thiagoschoeffel/ts-components'
@@ -48,6 +48,9 @@ const sortKey = ref<FrozenSortKey>(
 const sortDirection = ref<DataTableSortDirection>(params.get('direcao') === 'desc' ? 'desc' : 'asc')
 const search = ref(params.get('busca') ?? '')
 const debouncedSearch = ref(search.value)
+const requestedPage = Number(params.get('pagina'))
+const currentPage = ref(Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1)
+const itemsPerPage = 10
 const isLoading = ref(true)
 const hasLoadingError = ref(false)
 const configurationDrawerOpen = ref(false)
@@ -170,6 +173,8 @@ function persistState() {
   else url.searchParams.set('ordenar', sortKey.value)
   if (sortDirection.value === 'asc') url.searchParams.delete('direcao')
   else url.searchParams.set('direcao', sortDirection.value)
+  if (currentPage.value > 1) url.searchParams.set('pagina', String(currentPage.value))
+  else url.searchParams.delete('pagina')
   if (url.href !== window.location.href) window.history.pushState(window.history.state, '', url)
 }
 function restoreFromUrl() {
@@ -183,11 +188,14 @@ function restoreFromUrl() {
   sortDirection.value = nextParams.get('direcao') === 'desc' ? 'desc' : 'asc'
   search.value = nextParams.get('busca') ?? ''
   debouncedSearch.value = search.value
+  const page = Number(nextParams.get('pagina'))
+  currentPage.value = Number.isInteger(page) && page > 0 ? page : 1
 }
 function updateTab(value: string) {
   activeTab.value = validTabs.has(value as FrozenStockTab) ? value as FrozenStockTab : 'estoque'
   sortKey.value = defaultSortByTab[activeTab.value]
   sortDirection.value = 'asc'
+  currentPage.value = 1
   configurationSavedMessage.value = ''
 }
 function handlePopState() {
@@ -196,7 +204,10 @@ function handlePopState() {
   queueMicrotask(() => { restoringHistory = false })
 }
 
-watch([activeTab, debouncedSearch, sortKey, sortDirection], () => {
+watch([activeTab, debouncedSearch], () => {
+  if (!restoringHistory) currentPage.value = 1
+})
+watch([activeTab, debouncedSearch, sortKey, sortDirection, currentPage], () => {
   persistState()
 })
 
@@ -251,16 +262,25 @@ const expirations = computed(() => allExpirations.value
   .sort((first, second) => compare(expirationSortValue(first), expirationSortValue(second))))
 const columns = computed(() =>
   activeTab.value === 'estoque' ? stockColumns : activeTab.value === 'produtos' ? productColumns : expirationColumns)
+const filteredItems = computed(() =>
+  activeTab.value === 'estoque' ? stock.value : activeTab.value === 'produtos' ? configurations.value : expirations.value)
+const pageStart = computed(() => (currentPage.value - 1) * itemsPerPage)
+const visibleItems = computed(() => filteredItems.value.slice(pageStart.value, pageStart.value + itemsPerPage))
+const visibleStock = computed(() => stock.value.slice(pageStart.value, pageStart.value + itemsPerPage))
+const visibleConfigurations = computed(() => configurations.value.slice(pageStart.value, pageStart.value + itemsPerPage))
+const visibleExpirations = computed(() => expirations.value.slice(pageStart.value, pageStart.value + itemsPerPage))
+const visibleStart = computed(() => filteredItems.value.length ? pageStart.value + 1 : 0)
+const visibleEnd = computed(() => Math.min(pageStart.value + itemsPerPage, filteredItems.value.length))
 const rows = computed<DataTableRow[]>(() => {
   if (activeTab.value === 'estoque') {
-    return stock.value.map(item => ({
+    return visibleStock.value.map(item => ({
       ...item,
       id: item.configuration.id,
       presentation: item.configuration.presentation
     }))
   }
-  if (activeTab.value === 'produtos') return configurations.value.map(item => ({ ...item }))
-  return expirations.value.map(item => ({
+  if (activeTab.value === 'produtos') return visibleConfigurations.value.map(item => ({ ...item }))
+  return visibleExpirations.value.map(item => ({
     ...item,
     id: item.lot.id,
     lotId: item.lot.id,
@@ -268,8 +288,9 @@ const rows = computed<DataTableRow[]>(() => {
     physicalQuantity: item.lot.physicalQuantity
   }))
 })
-const visibleItems = computed(() =>
-  activeTab.value === 'estoque' ? stock.value : activeTab.value === 'produtos' ? configurations.value : expirations.value)
+watch(filteredItems, items => {
+  currentPage.value = Math.min(currentPage.value, Math.max(1, Math.ceil(items.length / itemsPerPage)))
+})
 const hasSearch = computed(() => Boolean(normalizedSearch.value))
 const emptyTitle = computed(() => {
   if (hasLoadingError.value) return 'Não foi possível carregar os congelados'
@@ -488,7 +509,7 @@ onBeforeUnmount(() => {
         </EmptyState>
 
         <template v-else-if="activeTab === 'estoque'">
-          <Card v-for="item in isLoading ? [] : stock" :key="item.configuration.id">
+          <Card v-for="item in isLoading ? [] : visibleStock" :key="item.configuration.id">
             <div class="flex items-start justify-between gap-3">
               <div><p class="font-semibold text-slate-800">{{ item.producibleName }}</p><p class="mt-1 text-xs text-slate-500">{{ item.configuration.presentation }}</p></div>
               <Badge :variant="statusVariant(item.status)">{{ statusLabel(item.status) }}</Badge>
@@ -503,7 +524,7 @@ onBeforeUnmount(() => {
         </template>
 
         <template v-else-if="activeTab === 'produtos'">
-          <Card v-for="item in isLoading ? [] : configurations" :key="item.id">
+          <Card v-for="item in isLoading ? [] : visibleConfigurations" :key="item.id">
             <div class="flex items-start justify-between gap-3">
               <div><p class="font-semibold text-slate-800">{{ item.producibleName }}</p><p class="mt-1 text-xs text-slate-500">{{ item.presentation }}</p></div>
               <Badge :variant="item.active ? 'success' : 'danger'">{{ item.active ? 'Ativo' : 'Inativo' }}</Badge>
@@ -516,7 +537,7 @@ onBeforeUnmount(() => {
         </template>
 
         <template v-else>
-          <Card v-for="item in isLoading ? [] : expirations" :key="item.lot.id">
+          <Card v-for="item in isLoading ? [] : visibleExpirations" :key="item.lot.id">
             <div class="flex items-start justify-between gap-3">
               <div><p class="font-semibold text-slate-800">{{ item.producibleName }}</p><p class="mt-1 text-xs text-slate-500">{{ item.configuration.presentation }} · {{ item.lot.id }}</p></div>
               <Badge :variant="statusVariant(item.status)">{{ statusLabel(item.status) }}</Badge>
@@ -532,7 +553,7 @@ onBeforeUnmount(() => {
       </div>
 
       <DataTable
-        :class="['desktop-only-flex min-h-0 flex-1', !isLoading && (hasLoadingError || visibleItems.length === 0) ? '[&_table]:h-full [&_tbody>tr>td]:align-middle' : '']"
+        class="desktop-only-flex min-h-0 flex-1"
         :columns="columns"
         :rows="hasLoadingError ? [] : rows"
         :selectable="false"
@@ -578,6 +599,10 @@ onBeforeUnmount(() => {
           </EmptyState>
         </template>
       </DataTable>
+      <div v-if="!hasLoadingError" class="mt-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <p class="text-sm text-slate-500" aria-live="polite">Mostrando {{ visibleStart }}–{{ visibleEnd }} de {{ filteredItems.length }} registros</p>
+        <Pagination v-model="currentPage" :total="filteredItems.length" :items-per-page="itemsPerPage" size="medium" label="Paginação de congelados" />
+      </div>
       </Card>
     </div>
 
