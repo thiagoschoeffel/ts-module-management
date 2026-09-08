@@ -32,9 +32,9 @@ const isDirty = computed(() => initialSnapshot.value ? snapshot.value !== initia
 const accessIdError = computed(() => {
   if (!showValidation.value) return undefined
   const value = accessId.value.trim()
-  if (!value) return 'Informe a identificação usada no acesso.'
-  if (!/^[a-zA-Z0-9._@+-]+$/.test(value)) return 'Use apenas letras, números, ponto, arroba, hífen ou sublinhado.'
-  if (props.repository.hasAccessId(value, props.mode === 'edit' ? props.userId : undefined)) return 'Esta identificação de acesso já está em uso.'
+  if (!value) return 'Informe o e-mail que receberá o convite.'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Informe um e-mail válido.'
+  if (props.repository.hasAccessId(value, props.mode === 'edit' ? props.userId : undefined)) return 'Este e-mail já está associado.'
   return undefined
 })
 
@@ -50,10 +50,10 @@ async function save() {
   saving.value = true
   saveError.value = ''
   try {
-    await props.repository.save({ id: props.mode === 'edit' && props.userId ? props.userId : '', name: name.value, accessId: accessId.value.trim(), role: role.value, active: active.value })
+    await props.repository.save({ id: props.mode === 'edit' && props.userId ? props.userId : '', name: name.value, accessId: accessId.value.trim(), role: role.value, active: active.value, version: user.value?.version ?? 0 })
     saving.value = false
     initialSnapshot.value = snapshot.value
-    savedMessage.value = props.mode === 'edit' ? 'Associação atualizada na API.' : 'Identidade associada à organização.'
+    savedMessage.value = props.mode === 'edit' ? 'Associação atualizada na API.' : 'Convite enviado por e-mail.'
     navigationTimeout = setTimeout(leavePage, 700)
   }
   catch (error) {
@@ -93,12 +93,12 @@ watch(snapshot, () => { if (savedMessage.value) savedMessage.value = '' })
     <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
       <div class="space-y-4">
         <Card>
-          <template #header><h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Identidade</h2><p class="mt-1 text-sm text-slate-500">A identidade precisa existir no provedor OIDC; esta tela administra apenas o vínculo com a organização.</p></template>
+          <template #header><h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Identidade</h2><p class="mt-1 text-sm text-slate-500">Um convite de acesso será enviado por e-mail e o vínculo será criado após o aceite autenticado.</p></template>
           <div class="grid gap-4 sm:grid-cols-2">
-            <Input id="user-name" v-model="name" label="Nome no provedor" :placeholder="props.mode === 'create' ? 'Preenchido após associar' : undefined" disabled />
-            <Input id="user-access-id" v-model="accessId" label="Subject OIDC" description="Identificador exato da identidade já provisionada." placeholder="subject-do-provedor" autocomplete="username" autocapitalize="none" :spellcheck="false" required :disabled="props.mode === 'edit'" :error="accessIdError" />
+            <Input v-if="props.mode === 'edit'" id="user-name" v-model="name" label="Nome" disabled />
+            <Input id="user-access-id" v-model="accessId" type="email" label="E-mail" :description="props.mode === 'create' ? 'O convite expira em 7 dias.' : 'E-mail confirmado pela identidade.'" placeholder="nome@empresa.com.br" autocomplete="email" autocapitalize="none" :spellcheck="false" required :disabled="props.mode === 'edit'" :error="accessIdError" />
           </div>
-          <Checkbox v-model="active" class="mt-4" label="Usuário ativo" />
+          <Checkbox v-if="props.mode === 'edit'" v-model="active" class="mt-4" label="Usuário ativo" />
         </Card>
 
         <Card>
@@ -116,13 +116,13 @@ watch(snapshot, () => { if (savedMessage.value) savedMessage.value = '' })
             <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">Perfil</dt><dd><Badge size="medium" :variant="userRoleBadgeVariants[role]">{{ userRoleLabels[role] }}</Badge></dd></div>
             <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">Status</dt><dd><Badge size="medium" :variant="active ? 'success' : 'danger'">{{ active ? 'Ativo' : 'Inativo' }}</Badge></dd></div>
           </dl>
-          <template #footer><Button type="submit" class="w-full" :loading="saving" :disabled="props.mode === 'edit' && !user">{{ props.mode === 'edit' ? 'Salvar alterações' : 'Salvar usuário' }}</Button></template>
+          <template #footer><Button type="submit" class="w-full" :loading="saving" :disabled="props.mode === 'edit' && !user">{{ props.mode === 'edit' ? 'Salvar alterações' : 'Enviar convite' }}</Button></template>
         </Card>
       </aside>
     </div>
 
     <Button type="button" variant="secondary" @click="cancel">Cancelar</Button>
-    <div class="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-6 py-3 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"><Button type="submit" class="w-full" :loading="saving" :disabled="props.mode === 'edit' && !user">{{ props.mode === 'edit' ? 'Salvar alterações' : 'Salvar usuário' }}</Button></div>
+    <div class="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-6 py-3 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden"><Button type="submit" class="w-full" :loading="saving" :disabled="props.mode === 'edit' && !user">{{ props.mode === 'edit' ? 'Salvar alterações' : 'Enviar convite' }}</Button></div>
     <AlertDialog v-model:open="cancelConfirmationOpen" title="Deseja sair?" description="As alterações não salvas serão perdidas." cancel-label="Continuar editando" confirm-label="Sair sem salvar" confirm-variant="danger" @confirm="leavePage" />
   </form>
 </template>

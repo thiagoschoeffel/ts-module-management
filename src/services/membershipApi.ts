@@ -10,10 +10,10 @@ export interface MembershipRepository {
   hasAccessId(accessId: string, exceptId?: string): boolean
 }
 
-interface ApiMembership { userId: string, displayName: string, externalSubject: string, role: 'Owner' | 'Administrator' | 'Operator' | 'DeliveryDriver', isActive: boolean }
-const toRole = (role: ApiMembership['role']): UserRole => role === 'DeliveryDriver' ? 'delivery-driver' : role === 'Operator' ? 'operator' : 'administrator'
-const toApiRole = (role: UserRole) => role === 'delivery-driver' ? 'DeliveryDriver' : role === 'operator' ? 'Operator' : 'Administrator'
-const map = (item: ApiMembership): ManagementUser => ({ id: item.userId, name: item.displayName, accessId: item.externalSubject, role: toRole(item.role), active: item.isActive })
+interface ApiMembership { userId: string, displayName: string, email: string | null, role: 'Owner' | 'Administrator' | 'Operator' | 'DeliveryDriver', isActive: boolean, version: number }
+const toRole = (role: ApiMembership['role']): UserRole => role === 'Owner' ? 'owner' : role === 'DeliveryDriver' ? 'delivery-driver' : role === 'Operator' ? 'operator' : 'administrator'
+const toApiRole = (role: UserRole) => role === 'owner' ? 'Owner' : role === 'delivery-driver' ? 'DeliveryDriver' : role === 'operator' ? 'Operator' : 'Administrator'
+const map = (item: ApiMembership): ManagementUser => ({ id: item.userId, name: item.displayName, accessId: item.email ?? 'E-mail não vinculado', role: toRole(item.role), active: item.isActive, version: item.version })
 
 export function createMembershipRepository(request: AuthenticatedApiRequest): MembershipRepository {
   const users = ref<ManagementUser[]>([])
@@ -33,9 +33,11 @@ export function createMembershipRepository(request: AuthenticatedApiRequest): Me
     hasAccessId: (value, exceptId) => users.value.some(user => user.id !== exceptId && user.accessId.toLocaleLowerCase('pt-BR') === value.trim().toLocaleLowerCase('pt-BR')),
     async save(user) {
       const existing = users.value.some(item => item.id === user.id)
-      await json<ApiMembership>(existing ? `/api/memberships/${encodeURIComponent(user.id)}` : '/api/memberships', {
+      await json<ApiMembership | { id: string }>(existing ? `/api/memberships/${encodeURIComponent(user.id)}` : '/api/membership-invitations', {
         method: existing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ externalSubject: user.accessId, role: toApiRole(user.role), isActive: user.active })
+        body: JSON.stringify(existing
+          ? { role: toApiRole(user.role), isActive: user.active, expectedVersion: user.version }
+          : { email: user.accessId, role: toApiRole(user.role) })
       })
       await load()
     }
