@@ -38,14 +38,20 @@ function returnUrl() { const candidate = new URLSearchParams(window.location.sea
 function detailUrl(id: string) { return `/catalogo/${id}?retorno=${encodeURIComponent(returnUrl())}` }
 function leave() { navigate(props.mode === 'edit' && props.offerId ? detailUrl(props.offerId) : returnUrl()) }
 function cancel() { if (isDirty.value) cancelConfirmationOpen.value = true; else leave() }
+function cloneComponents(value: OfferComponent[]): OfferComponent[] {
+  return value.map(component => ({ ...component }))
+}
+function cloneChoiceGroups(value: OfferChoiceGroup[]): OfferChoiceGroup[] {
+  return value.map(group => ({ ...group, options: group.options.map(option => ({ ...option })) }))
+}
 async function save() {
   showValidation.value = true
   if (nameError.value || priceError.value || componentsInvalid.value || groupsInvalid.value || addonsInvalid.value || (props.mode === 'edit' && !existing.value)) return
   saving.value = true
-  const id = props.mode === 'edit' && props.offerId ? props.offerId : nextOfferId()
-  const offer: Offer = { id, name: name.value.trim(), description: description.value.trim() || undefined, basePrice: Number(basePrice.value), active: active.value, requiresMenuChoice: requiresMenuChoice.value, components: structuredClone(components.value), choiceGroups: structuredClone(choiceGroups.value), allowedAddonIds: [...new Set(allowedAddonIds.value)] }
   saveError.value = ''
   try {
+    const id = props.mode === 'edit' && props.offerId ? props.offerId : nextOfferId()
+    const offer: Offer = { id, name: name.value.trim(), description: description.value.trim() || undefined, basePrice: Number(basePrice.value), active: active.value, requiresMenuChoice: requiresMenuChoice.value, components: cloneComponents(components.value), choiceGroups: cloneChoiceGroups(choiceGroups.value), allowedAddonIds: [...new Set(allowedAddonIds.value)] }
     const saved = await saveOffer(offer)
     initialSnapshot.value = snapshot.value
     savedMessage.value = props.mode === 'edit' ? 'Alterações da oferta salvas.' : 'Oferta criada com sucesso.'
@@ -57,7 +63,7 @@ async function save() {
 function warn(event: BeforeUnloadEvent) { if (!isDirty.value || savedMessage.value) return; event.preventDefault(); event.returnValue = '' }
 onMounted(() => {
   window.addEventListener('beforeunload', warn)
-  if (props.mode === 'edit' && existing.value) { const offer = existing.value; name.value = offer.name; description.value = offer.description ?? ''; basePrice.value = offer.basePrice; active.value = offer.active; requiresMenuChoice.value = offer.requiresMenuChoice; components.value = structuredClone(offer.components); choiceGroups.value = structuredClone(offer.choiceGroups); allowedAddonIds.value = [...offer.allowedAddonIds] }
+  if (props.mode === 'edit' && existing.value) { const offer = existing.value; name.value = offer.name; description.value = offer.description ?? ''; basePrice.value = offer.basePrice; active.value = offer.active; requiresMenuChoice.value = offer.requiresMenuChoice; components.value = cloneComponents(offer.components); choiceGroups.value = cloneChoiceGroups(offer.choiceGroups); allowedAddonIds.value = [...offer.allowedAddonIds] }
   initialSnapshot.value = snapshot.value
 })
 onBeforeUnmount(() => { window.removeEventListener('beforeunload', warn); if (navigationTimeout) clearTimeout(navigationTimeout) })

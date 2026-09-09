@@ -102,8 +102,10 @@ watch(snapshot, () => { if (savedMessage.value) savedMessage.value = '' })
           <Input id="driver-name" v-model="name" label="Nome" placeholder="Nome do entregador" autocomplete="name" required :error="nameError" />
           <Input id="driver-phone" :model-value="phone" type="tel" inputmode="tel" autocomplete="tel" label="Telefone (opcional)" placeholder="(11) 99999-9999" :maxlength="15" :error="phoneError" @paste="pastePhone" @update:model-value="updatePhone" />
         </div>
-        <Checkbox v-model="active" class="mt-4" label="Entregador ativo" />
-        <Checkbox v-model="available" class="mt-3" label="Disponível para novas rotas" :disabled="!active" />
+        <div class="mt-4 grid gap-3">
+          <Checkbox v-model="active" label="Entregador ativo" />
+          <Checkbox v-model="available" label="Disponível para novas rotas" :disabled="!active" />
+        </div>
       </Card>
 
       <aside class="space-y-4 lg:sticky lg:top-6">
